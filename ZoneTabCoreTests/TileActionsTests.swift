@@ -18,7 +18,7 @@ struct TileActionsTests {
     }
 
     @Test func arrowsFollowScreenSidesWhenPrimaryIsRight() {
-        let flipped = ZoneLayout.zones(for: Fixtures.lg, side: .right)!
+        let flipped = ZoneLayout.zones(for: Fixtures.lg, config: ZoneConfig(side: .right))!
         #expect(plan(.left, smallWindow, zones: flipped).placement == .zone(.secondary))
         #expect(plan(.right, smallWindow, zones: flipped).placement == .zone(.primary))
     }

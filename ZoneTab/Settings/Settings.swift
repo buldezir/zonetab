@@ -52,6 +52,18 @@ final class Settings: ObservableObject {
         didSet { defaults.set(primarySide.rawValue, forKey: Keys.primarySide) }
     }
 
+    /// Main zone width as a percentage of the display width, or nil for 16:9 at full height (the "4K" zone).
+    @Published var zoneWidthPercent: Double? {
+        didSet {
+            if let zoneWidthPercent { defaults.set(zoneWidthPercent, forKey: Keys.zoneWidthPercent) }
+            else { defaults.removeObject(forKey: Keys.zoneWidthPercent) }
+        }
+    }
+
+    var zoneConfig: ZoneConfig {
+        ZoneConfig(side: primarySide, width: zoneWidthPercent.map { .fraction($0 / 100) } ?? .sixteenByNine)
+    }
+
     @Published private(set) var shortcuts: [ShortcutAction: KeyCombo] {
         didSet {
             let stored = Dictionary(uniqueKeysWithValues: shortcuts.map { ($0.key.rawValue, $0.value) })
@@ -63,6 +75,7 @@ final class Settings: ObservableObject {
         static let zonesEnabled = "zonesEnabled"
         static let replaceCommandTab = "replaceCommandTab"
         static let primarySide = "primarySide"
+        static let zoneWidthPercent = "zoneWidthPercent"
         static let shortcuts = "shortcuts"
     }
 
@@ -71,6 +84,7 @@ final class Settings: ObservableObject {
         zonesEnabled = defaults.bool(forKey: Keys.zonesEnabled)
         replaceCommandTab = defaults.bool(forKey: Keys.replaceCommandTab)
         primarySide = ZoneSide(rawValue: defaults.string(forKey: Keys.primarySide) ?? "") ?? .left
+        zoneWidthPercent = defaults.object(forKey: Keys.zoneWidthPercent) as? Double
         var shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, $0.defaultCombo) })
         if let data = defaults.data(forKey: Keys.shortcuts),
            let stored = try? JSONDecoder().decode([String: KeyCombo].self, from: data) {

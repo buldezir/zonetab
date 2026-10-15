@@ -50,19 +50,19 @@ public enum ScopeResolver {
     }
 
     /// The scope at the cursor: its zone when zones are on and the display is zoned, otherwise its display.
-    public static func scope(at point: CGPoint, displays: [DisplayInfo], zonesEnabled: Bool, side: ZoneSide) -> Scope? {
+    public static func scope(at point: CGPoint, displays: [DisplayInfo], zonesEnabled: Bool, config: ZoneConfig) -> Scope? {
         guard let display = display(at: point, in: displays) else { return nil }
-        if zonesEnabled, let zones = ZoneLayout.zones(for: display, side: side),
+        if zonesEnabled, let zones = ZoneLayout.zones(for: display, config: config),
            let zone = ZoneLayout.zone(atX: point.x, in: zones) {
             return Scope(displayID: display.id, zone: zone.kind, rect: zone.rect)
         }
         return Scope(displayID: display.id, zone: nil, rect: display.usableFrame)
     }
 
-    public static func contains(_ scope: Scope, windowBounds: CGRect, displays: [DisplayInfo], side: ZoneSide) -> Bool {
+    public static func contains(_ scope: Scope, windowBounds: CGRect, displays: [DisplayInfo], config: ZoneConfig) -> Bool {
         guard let display = display(for: windowBounds, in: displays), display.id == scope.displayID else { return false }
         guard let zoneKind = scope.zone else { return true }
-        guard let zones = ZoneLayout.zones(for: display, side: side) else { return true }
+        guard let zones = ZoneLayout.zones(for: display, config: config) else { return true }
         return zoneMemberships(of: windowBounds, in: zones).contains(zoneKind)
     }
 

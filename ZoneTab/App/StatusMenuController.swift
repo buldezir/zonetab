@@ -32,7 +32,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
         menu.addItem(item("Zones", #selector(toggleZones), state: settings.zonesEnabled))
         for side in ZoneSide.allCases {
-            let title = side == .left ? "4K Zone on Left" : "4K Zone on Right"
+            let title = side == .left ? "Main Zone on Left" : "Main Zone on Right"
             let sideItem = item(title, #selector(chooseSide(_:)), state: settings.primarySide == side)
             sideItem.indentationLevel = 1
             sideItem.representedObject = side.rawValue

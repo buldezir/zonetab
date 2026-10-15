@@ -119,7 +119,7 @@ final class SwitcherController {
     static func query(inventory: WindowInventory, settings: Settings, at point: CGPoint) -> Query? {
         let snapshot = inventory.snapshot()
         guard let scope = ScopeResolver.scope(at: point, displays: snapshot.displays,
-                                              zonesEnabled: settings.zonesEnabled, side: settings.primarySide) else { return nil }
+                                              zonesEnabled: settings.zonesEnabled, config: settings.zoneConfig) else { return nil }
         let displayUUID = snapshot.displays.first { $0.id == scope.displayID }?.uuid ?? ""
         if WindowInventory.isFullScreenSpaceActive(displayUUID: displayUUID) {
             let all = inventory.snapshot(includeAllSpaces: true)
@@ -129,7 +129,7 @@ final class SwitcherController {
         }
         let list = SwitcherListBuilder.build(windows: snapshot.windows, apps: snapshot.apps, frontmostPID: snapshot.frontmostPID,
                                              ownPID: snapshot.ownPID, scope: scope, displays: snapshot.displays,
-                                             side: settings.primarySide)
+                                             config: settings.zoneConfig)
         return Query(scope: scope, list: list, snapshot: snapshot, isFullScreenFallback: false)
     }
 

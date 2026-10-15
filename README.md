@@ -3,7 +3,7 @@
 A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle for an ultrawide setup:
 
 - **⌘⇥ app switcher.** It lists only the apps that have a window where the mouse is. That means the zone under the cursor when zones are on, or the display under the cursor otherwise.
-- **Zones on 21:9 and wider displays.** One zone is 16:9 at full height (on a 5K2K panel, an exact 3840 px "4K" column), and a second zone takes the rest of the width.
+- **Zones on 21:9 and wider displays.** A main zone and a second zone that takes the rest of the width. By default the main zone is 16:9 at full height (on a 5K2K panel, an exact 3840 px "4K" column); in Settings its width can be set from 20% to 80% of the display.
 
 ## Using it
 
@@ -24,7 +24,8 @@ A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle 
 - Apps with no windows, or only minimized windows, are not listed.
 
 **Settings** (menu-bar icon → Settings…):
-- turn zones on or off, and put the 4K zone on the left or right;
+- turn zones on or off, and put the main zone on the left or right;
+- set the main zone's width with a slider (the zones are previewed on screen while you drag; it snaps back to 16:9 near that width, or use "Use 16:9 (4K)");
 - turn the ⌘⇥ replacement on or off;
 - change the window shortcuts;
 - launch at login.
@@ -93,6 +94,10 @@ While ZoneTab runs, it turns off the system ⌘⇥ switcher, and macOS keeps tha
 - `ZoneTab/Switcher/`: the ⌘⇥ session and its non-activating panel.
 - `ZoneTab/Tiling/`: tiling commands and Shift-drag snapping.
 - `ZoneTab/Settings/`, `ZoneTab/App/`: preferences, the menu-bar item, app lifecycle, and debug diagnostics.
+- `ZoneTab/Resources/AppIcon.icon`: the app icon, an Icon Composer document (open it in Xcode's Icon Composer to edit). Preview it without building:
+  ```bash
+  "/Applications/Xcode.app/Contents/Applications/Icon Composer.app/Contents/Executables/ictool" ZoneTab/Resources/AppIcon.icon --export-image --output-file icon.png --platform macOS --rendition Default --width 512 --height 512 --scale 1
+  ```
 
 **Private APIs:**
 - `CGSSetSymbolicHotKeyEnabled`, `CGSCopyManagedDisplaySpaces` and `_AXUIElementGetWindow` are declared in the bridging header.

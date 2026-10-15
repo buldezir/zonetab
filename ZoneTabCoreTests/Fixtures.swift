@@ -9,7 +9,7 @@ enum Fixtures {
     static let laptop = DisplayInfo(id: 2, uuid: "Laptop", frame: CGRect(x: 3840, y: 0, width: 1728, height: 1117),
                                     usableFrame: CGRect(x: 3840, y: 0, width: 1728, height: 1117))
 
-    static let lgZones = ZoneLayout.zones(for: lg, side: .left)!
+    static let lgZones = ZoneLayout.zones(for: lg, config: ZoneConfig(side: .left))!
     static var zoneA: CGRect { lgZones[0].rect }
     static var zoneB: CGRect { lgZones[1].rect }
 

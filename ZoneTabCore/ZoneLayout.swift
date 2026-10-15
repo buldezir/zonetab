@@ -17,13 +17,31 @@ public struct DisplayInfo: Sendable, Equatable, Codable {
     }
 }
 
-/// Which side of an ultrawide display holds the 16:9 zone.
+/// Which side of an ultrawide display holds the main zone.
 public enum ZoneSide: String, Sendable, Codable, CaseIterable {
     case left, right
 }
 
+/// How wide the main zone is.
+public enum ZoneWidth: Sendable, Equatable, Codable {
+    /// 16:9 at the display's full height. On a 5K2K panel that is an exact 3840-pixel "4K" column.
+    case sixteenByNine
+    /// A share of the display width, clamped to `ZoneLayout.fractionRange`.
+    case fraction(Double)
+}
+
+public struct ZoneConfig: Sendable, Equatable, Codable {
+    public var side: ZoneSide
+    public var width: ZoneWidth
+
+    public init(side: ZoneSide = .left, width: ZoneWidth = .sixteenByNine) {
+        self.side = side
+        self.width = width
+    }
+}
+
 public enum ZoneKind: String, Sendable, Codable {
-    /// The 16:9 zone at full display height ("4K display").
+    /// The main zone: 16:9 at full height ("4K display") by default, or the configured share of the width.
     case primary
     /// The remaining width.
     case secondary
@@ -63,23 +81,37 @@ public enum ZoneLayout {
         return CGRect(x: minX, y: visibleFrame.minY, width: maxX - minX, height: maxY - visibleFrame.minY)
     }
 
-    /// Width of the 16:9 zone: 16:9 of the full display height, so on a 5K2K panel the split sits at exactly
-    /// 3840 physical pixels.
-    public static func primaryWidth(for frame: CGRect) -> CGFloat {
-        (frame.height * primaryAspectRatio).rounded()
+    /// The range a configured main-zone share is clamped to.
+    public static let fractionRange: ClosedRange<Double> = 0.2...0.8
+
+    /// Width of the main zone. For `.sixteenByNine` that is 16:9 of the full display height, so on a 5K2K panel
+    /// the split sits at exactly 3840 physical pixels.
+    public static func primaryWidth(for frame: CGRect, width: ZoneWidth) -> CGFloat {
+        switch width {
+        case .sixteenByNine:
+            return (frame.height * primaryAspectRatio).rounded()
+        case .fraction(let fraction):
+            let clamped = min(max(fraction, fractionRange.lowerBound), fractionRange.upperBound)
+            return (frame.width * clamped).rounded()
+        }
+    }
+
+    /// The main zone's share of the display width.
+    public static func fraction(for frame: CGRect, width: ZoneWidth) -> Double {
+        frame.width > 0 ? primaryWidth(for: frame, width: width) / frame.width : 0
     }
 
     /// Zones for a display, ordered left to right, or nil if the display isn't wide enough.
-    public static func zones(for display: DisplayInfo, side: ZoneSide) -> [Zone]? {
+    public static func zones(for display: DisplayInfo, config: ZoneConfig) -> [Zone]? {
         let frame = display.frame
         let usable = display.usableFrame
         guard isZoned(frame) else { return nil }
-        let width = primaryWidth(for: frame)
-        let splitX = side == .left ? frame.minX + width : frame.maxX - width
+        let width = primaryWidth(for: frame, width: config.width)
+        let splitX = config.side == .left ? frame.minX + width : frame.maxX - width
         guard splitX > usable.minX, splitX < usable.maxX else { return nil }
         let left = CGRect(x: usable.minX, y: usable.minY, width: splitX - usable.minX, height: usable.height)
         let right = CGRect(x: splitX, y: usable.minY, width: usable.maxX - splitX, height: usable.height)
-        switch side {
+        switch config.side {
         case .left: return [Zone(kind: .primary, rect: left), Zone(kind: .secondary, rect: right)]
         case .right: return [Zone(kind: .secondary, rect: left), Zone(kind: .primary, rect: right)]
         }

@@ -30,7 +30,7 @@ public enum SwitcherListBuilder {
     /// - Parameter windows: front-to-back z-order, as CGWindowList returns it. Off-screen windows are only used
     ///   for hidden apps (their windows keep their last frame).
     public static func build(windows: [WindowInfo], apps: [Int32: AppInfo], frontmostPID: Int32?, ownPID: Int32,
-                             scope: Scope, displays: [DisplayInfo], side: ZoneSide) -> SwitcherList {
+                             scope: Scope, displays: [DisplayInfo], config: ZoneConfig) -> SwitcherList {
         func eligible(_ pid: Int32) -> AppInfo? {
             guard pid != ownPID, let app = apps[pid], app.isRegular else { return nil }
             return app
@@ -44,7 +44,7 @@ public enum SwitcherListBuilder {
             guard let app = eligible(window.pid), !app.isHidden else { continue }
             if topmostWindow[window.pid] == nil { topmostWindow[window.pid] = window.id }
             guard !listed.contains(window.pid),
-                  ScopeResolver.contains(scope, windowBounds: window.bounds, displays: displays, side: side) else { continue }
+                  ScopeResolver.contains(scope, windowBounds: window.bounds, displays: displays, config: config) else { continue }
             listed.insert(window.pid)
             entries.append(SwitcherEntry(pid: window.pid, windowID: window.id))
         }
@@ -53,7 +53,7 @@ public enum SwitcherListBuilder {
         var hidden: [(rank: Int, entry: SwitcherEntry)] = []
         for window in windows where !window.isOnScreen && window.isCandidate {
             guard let app = eligible(window.pid), app.isHidden, !listed.contains(window.pid),
-                  ScopeResolver.contains(scope, windowBounds: window.bounds, displays: displays, side: side) else { continue }
+                  ScopeResolver.contains(scope, windowBounds: window.bounds, displays: displays, config: config) else { continue }
             listed.insert(window.pid)
             hidden.append((app.activationRank, SwitcherEntry(pid: window.pid, windowID: window.id, isHidden: true)))
         }

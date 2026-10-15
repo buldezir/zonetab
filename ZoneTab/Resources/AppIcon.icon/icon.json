@@ -1,0 +1,40 @@
+{
+  "fill": {
+    "automatic-gradient": "display-p3:0.20000,0.36000,0.95000,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": false,
+          "image-name-specializations": [
+            {
+              "value": "apps.svg"
+            },
+            {
+              "appearance": "dark",
+              "value": "apps-dark.svg"
+            }
+          ],
+          "name": "apps"
+        },
+        {
+          "glass": true,
+          "image-name": "display.svg",
+          "name": "display"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.4
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

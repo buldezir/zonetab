@@ -25,7 +25,7 @@ final class WindowMover {
         guard let pid = pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier, pid != getpid() else { return nil }
         let displays = WindowInventory.displays()
         let zonesEnabled = settings.zonesEnabled
-        let side = settings.primarySide
+        let config = settings.zoneConfig
         let mouse = WindowInventory.mouseLocation
         let memory = self.memory
 
@@ -33,7 +33,7 @@ final class WindowMover {
             guard let window = AXWindow.focusedWindow(pid: pid), !window.isFullScreen, let frame = window.frame,
                   let display = ScopeResolver.display(for: frame, in: displays) ?? ScopeResolver.display(at: mouse, in: displays)
             else { return nil }
-            let zones = zonesEnabled ? ZoneLayout.zones(for: display, side: side) : nil
+            let zones = zonesEnabled ? ZoneLayout.zones(for: display, config: config) : nil
             let cursorZone = display.frame.contains(mouse) ? zones.flatMap { ZoneLayout.zone(atX: mouse.x, in: $0)?.kind } : nil
             let windowID = window.windowID
             let plan = TileActions.plan(command, windowFrame: frame, usable: display.usableFrame, zones: zones,
@@ -53,7 +53,7 @@ final class WindowMover {
     @discardableResult
     func place(pid: pid_t, windowID: CGWindowID, zone kind: ZoneKind, displayID: UInt32) async -> TileOutcome? {
         guard let display = WindowInventory.displays().first(where: { $0.id == displayID }),
-              let zone = ZoneLayout.zones(for: display, side: settings.primarySide)?.first(where: { $0.kind == kind }) else { return nil }
+              let zone = ZoneLayout.zones(for: display, config: settings.zoneConfig)?.first(where: { $0.kind == kind }) else { return nil }
         let outcome = await Task.detached(priority: .userInitiated) { () -> TileOutcome? in
             guard let window = AXWindow.window(pid: pid, id: windowID), !window.isFullScreen, let frame = window.frame else { return nil }
             let actual = window.setFrame(zone.rect, within: display.usableFrame)

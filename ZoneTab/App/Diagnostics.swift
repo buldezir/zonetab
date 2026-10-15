@@ -68,7 +68,7 @@ enum Diagnostics {
         var accessibilityTrusted: Bool
         var zonesEnabled: Bool
         var replaceCommandTab: Bool
-        var primarySide: ZoneSide
+        var zoneConfig: ZoneConfig
         var point: CGPoint
         var frontmostPID: Int32?
         var scope: Scope?
@@ -81,7 +81,7 @@ enum Diagnostics {
 
     private static func dump(at point: CGPoint, app: AppDelegate) -> Dump {
         let settings = app.settings
-        let side = settings.primarySide
+        let config = settings.zoneConfig
         let query = SwitcherController.query(inventory: app.inventory, settings: settings, at: point)
         let snapshot = query?.snapshot ?? app.inventory.snapshot()
         let list = query?.list
@@ -89,17 +89,17 @@ enum Diagnostics {
 
         let windows = snapshot.windows.filter(\.isCandidate).map { window -> WindowDump in
             let display = ScopeResolver.display(for: window.bounds, in: snapshot.displays)
-            let zones = display.flatMap { ZoneLayout.zones(for: $0, side: side) }
+            let zones = display.flatMap { ZoneLayout.zones(for: $0, config: config) }
                 .map { ScopeResolver.zoneMemberships(of: window.bounds, in: $0).sorted { $0.rawValue < $1.rawValue } } ?? []
             return WindowDump(app: name(window.pid), window: window, displayID: display?.id, zones: zones)
         }
         return Dump(
             generatedAt: Date(), running: app.isRunning, accessibilityTrusted: Permissions.isAccessibilityTrusted,
-            zonesEnabled: settings.zonesEnabled, replaceCommandTab: settings.replaceCommandTab, primarySide: side,
+            zonesEnabled: settings.zonesEnabled, replaceCommandTab: settings.replaceCommandTab, zoneConfig: config,
             point: point, frontmostPID: snapshot.frontmostPID, scope: query?.scope,
             fullScreenFallback: query?.isFullScreenFallback ?? false,
             displays: snapshot.displays.map {
-                DisplayDump(display: $0, zones: ZoneLayout.zones(for: $0, side: side),
+                DisplayDump(display: $0, zones: ZoneLayout.zones(for: $0, config: config),
                             fullScreenSpace: WindowInventory.isFullScreenSpaceActive(displayUUID: $0.uuid))
             },
             windows: windows,

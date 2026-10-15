@@ -23,14 +23,14 @@ struct GeometryTests {
 
 struct ZoneLayoutTests {
     @Test func lgSplitsAt4KColumn() throws {
-        let zones = try #require(ZoneLayout.zones(for: Fixtures.lg, side: .left))
+        let zones = try #require(ZoneLayout.zones(for: Fixtures.lg, config: ZoneConfig(side: .left)))
         #expect(zones.map(\.kind) == [.primary, .secondary])
         #expect(zones[0].rect == CGRect(x: 0, y: 33, width: 2880, height: 1587))
         #expect(zones[1].rect == CGRect(x: 2880, y: 33, width: 960, height: 1587))
     }
 
     @Test func primaryOnTheRight() throws {
-        let zones = try #require(ZoneLayout.zones(for: Fixtures.lg, side: .right))
+        let zones = try #require(ZoneLayout.zones(for: Fixtures.lg, config: ZoneConfig(side: .right)))
         #expect(zones.map(\.kind) == [.secondary, .primary])
         #expect(zones[0].rect.width == 960)
         #expect(zones[1].rect == CGRect(x: 960, y: 33, width: 2880, height: 1587))
@@ -44,7 +44,7 @@ struct ZoneLayoutTests {
     func otherUltrawides(size: CGSize, primary: CGFloat, secondary: CGFloat) throws {
         let frame = CGRect(origin: .zero, size: size)
         let display = DisplayInfo(id: 9, uuid: "X", frame: frame, usableFrame: frame)
-        let zones = try #require(ZoneLayout.zones(for: display, side: .left))
+        let zones = try #require(ZoneLayout.zones(for: display, config: ZoneConfig(side: .left)))
         #expect(zones[0].rect.width == primary)
         #expect(zones[1].rect.width == secondary)
     }
@@ -52,13 +52,13 @@ struct ZoneLayoutTests {
     @Test(arguments: [CGSize(width: 3840, height: 2160), CGSize(width: 1728, height: 1117), CGSize(width: 1080, height: 1920)])
     func regularDisplaysAreNotZoned(size: CGSize) {
         let frame = CGRect(origin: .zero, size: size)
-        #expect(ZoneLayout.zones(for: DisplayInfo(id: 9, uuid: "X", frame: frame, usableFrame: frame), side: .left) == nil)
+        #expect(ZoneLayout.zones(for: DisplayInfo(id: 9, uuid: "X", frame: frame, usableFrame: frame), config: ZoneConfig(side: .left)) == nil)
     }
 
     @Test func offsetDisplayKeepsItsOrigin() throws {
         let frame = CGRect(x: -3440, y: -200, width: 3440, height: 1440)
         let display = DisplayInfo(id: 3, uuid: "Y", frame: frame, usableFrame: frame)
-        let zones = try #require(ZoneLayout.zones(for: display, side: .left))
+        let zones = try #require(ZoneLayout.zones(for: display, config: ZoneConfig(side: .left)))
         #expect(zones[0].rect == CGRect(x: -3440, y: -200, width: 2560, height: 1440))
         #expect(zones[1].rect == CGRect(x: -880, y: -200, width: 880, height: 1440))
     }
@@ -75,6 +75,31 @@ struct ZoneLayoutTests {
         let frame = CGRect(x: 0, y: 0, width: 3840, height: 1620)
         let visible = CGRect(x: 0, y: 33, width: 3840, height: 1517) // 70 pt Dock
         #expect(ZoneLayout.usableFrame(frame: frame, visibleFrame: visible, dockAutohides: true) == visible)
+    }
+
+    @Test func percentageWidth() throws {
+        let zones = try #require(ZoneLayout.zones(for: Fixtures.lg, config: ZoneConfig(side: .left, width: .fraction(0.6))))
+        #expect(zones[0].rect == CGRect(x: 0, y: 33, width: 2304, height: 1587))
+        #expect(zones[1].rect == CGRect(x: 2304, y: 33, width: 1536, height: 1587))
+    }
+
+    @Test func percentageWidthOnTheRight() throws {
+        let zones = try #require(ZoneLayout.zones(for: Fixtures.lg, config: ZoneConfig(side: .right, width: .fraction(0.6))))
+        #expect(zones.map(\.kind) == [.secondary, .primary])
+        #expect(zones[0].rect.width == 1536)
+        #expect(zones[1].rect == CGRect(x: 1536, y: 33, width: 2304, height: 1587))
+    }
+
+    @Test func percentageIsClamped() {
+        #expect(ZoneLayout.primaryWidth(for: Fixtures.lg.frame, width: .fraction(0.95)) == 3072)
+        #expect(ZoneLayout.primaryWidth(for: Fixtures.lg.frame, width: .fraction(0.01)) == 768)
+    }
+
+    @Test func sixteenByNineShare() {
+        #expect(ZoneLayout.fraction(for: Fixtures.lg.frame, width: .sixteenByNine) == 0.75)
+        let ultrawide = CGRect(x: 0, y: 0, width: 5120, height: 1440)
+        #expect(ZoneLayout.fraction(for: ultrawide, width: .sixteenByNine) == 0.5)
+        #expect(ZoneLayout.fraction(for: ultrawide, width: .fraction(0.3)) == 0.3)
     }
 
     @Test func zoneAtX() {

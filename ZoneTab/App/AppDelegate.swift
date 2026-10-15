@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var featuresStarted = false
     private var nativeSwitcherDisabled = false
+    private var appliedShortcuts: [ShortcutAction: KeyCombo] = [:]
+    private var appliedReplaceCommandTab: Bool?
+    private var appliedZones: ZoneConfig?
     private var trustTimer: Timer?
     private var settingsSubscription: AnyCancellable?
     private var observers: [NSObjectProtocol] = []
@@ -86,26 +89,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Settings
 
+    /// Reacts to settings changes. Only what actually changed is re-applied: the zone width slider fires this
+    /// on every step.
     func applySettings() {
         statusMenu?.refresh()
         guard featuresStarted else { return }
 
-        for action in ShortcutAction.allCases {
+        for action in ShortcutAction.allCases where appliedShortcuts[action] != settings.shortcut(for: action) {
+            let combo = settings.shortcut(for: action)
             let command = action.command
-            HotKeyCenter.shared.register(id: Self.tileHotKeyID(action), combo: settings.shortcut(for: action)) { [weak self] in
+            HotKeyCenter.shared.register(id: Self.tileHotKeyID(action), combo: combo) { [weak self] in
                 self?.tile(command)
+            }
+            appliedShortcuts[action] = combo
+        }
+
+        if appliedReplaceCommandTab != settings.replaceCommandTab {
+            appliedReplaceCommandTab = settings.replaceCommandTab
+            if settings.replaceCommandTab {
+                if !nativeSwitcherDisabled { disableNativeSwitcher() }
+                switcher.registerShortcuts()
+            } else {
+                switcher.unregisterShortcuts()
+                if nativeSwitcherDisabled {
+                    NativeSwitcherGuard.setNativeSwitcherEnabled(true)
+                    nativeSwitcherDisabled = false
+                }
             }
         }
 
-        if settings.replaceCommandTab {
-            if !nativeSwitcherDisabled { disableNativeSwitcher() }
-            switcher.registerShortcuts()
-        } else {
-            switcher.unregisterShortcuts()
-            if nativeSwitcherDisabled {
-                NativeSwitcherGuard.setNativeSwitcherEnabled(true)
-                nativeSwitcherDisabled = false
-            }
+        // Remembered placements refer to the old zone geometry.
+        let zones = settings.zonesEnabled ? settings.zoneConfig : nil
+        if zones != appliedZones {
+            appliedZones = zones
+            mover.reset()
         }
     }
 

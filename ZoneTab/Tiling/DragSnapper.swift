@@ -76,7 +76,7 @@ final class DragSnapper {
         let mouse = WindowInventory.mouseLocation
         guard shift, settings.zonesEnabled,
               let display = ScopeResolver.display(at: mouse, in: WindowInventory.displays()),
-              let zones = ZoneLayout.zones(for: display, side: settings.primarySide),
+              let zones = ZoneLayout.zones(for: display, config: settings.zoneConfig),
               let zone = ZoneLayout.zone(atX: mouse.x, in: zones) else {
             target = nil
             overlay.hide()

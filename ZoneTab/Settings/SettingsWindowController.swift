@@ -4,6 +4,7 @@ import SwiftUI
 final class SettingsWindowController {
     private var window: NSWindow?
     private let settings: Settings
+    private let preview = ZonePreview()
 
     init(settings: Settings) {
         self.settings = settings
@@ -11,7 +12,7 @@ final class SettingsWindowController {
 
     func show() {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(settings: settings))
+            let hosting = NSHostingController(rootView: SettingsView(settings: settings, preview: preview))
             let window = NSWindow(contentViewController: hosting)
             window.title = "ZoneTab Settings"
             window.styleMask = [.titled, .closable]

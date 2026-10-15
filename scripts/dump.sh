@@ -18,7 +18,7 @@ python3 -I - "$OUT" <<'EOF'
 import json, sys
 d = json.load(open(sys.argv[1]))
 r = lambda rect: [round(v) for v in rect[0] + rect[1]]
-print(f'running={d["running"]} accessibility={d["accessibilityTrusted"]} zones={d["zonesEnabled"]} side={d["primarySide"]} '
+print(f'running={d["running"]} accessibility={d["accessibilityTrusted"]} zones={d["zonesEnabled"]} config={d["zoneConfig"]} '
       f'replaceCmdTab={d["replaceCommandTab"]} point={[round(v) for v in d["point"]]}')
 for disp in d["displays"]:
     di = disp["display"]

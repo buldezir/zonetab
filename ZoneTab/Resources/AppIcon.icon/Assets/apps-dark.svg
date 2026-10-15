@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The switcher: three app tiles in the main zone, the middle one selected. -->
+  <rect x="358" y="418" width="108" height="108" rx="30" fill="#0B1A4A" fill-opacity="0.28"/>
+  <rect x="252" y="436" width="72" height="72" rx="20" fill="#0B1A4A"/>
+  <rect x="376" y="436" width="72" height="72" rx="20" fill="#0B1A4A"/>
+  <rect x="500" y="436" width="72" height="72" rx="20" fill="#0B1A4A"/>
+</svg>

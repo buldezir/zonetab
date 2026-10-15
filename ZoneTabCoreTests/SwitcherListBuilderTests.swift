@@ -13,7 +13,7 @@ struct SwitcherListBuilderTests {
 
     func build(_ windows: [WindowInfo], apps: [AppInfo], frontmost: Int32?, scope: Scope) -> SwitcherList {
         SwitcherListBuilder.build(windows: windows, apps: Dictionary(uniqueKeysWithValues: apps.map { ($0.pid, $0) }),
-                                  frontmostPID: frontmost, ownPID: ownPID, scope: scope, displays: displays, side: .left)
+                                  frontmostPID: frontmost, ownPID: ownPID, scope: scope, displays: displays, config: ZoneConfig(side: .left))
     }
 
     @Test func listsOnlyAppsInTheZoneInZOrder() {
