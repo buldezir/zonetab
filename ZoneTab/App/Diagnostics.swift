@@ -7,8 +7,10 @@ import ZoneTabCore
 ///     open -g "zonetab://dump"                       # state at the mouse
 ///     open -g "zonetab://dump?x=3500&y=800"           # state at a point (Quartz coordinates)
 ///     open -g "zonetab://tile?action=left&bundle=com.apple.TextEdit"
+///     open -g "zonetab://fullscreen?bundle=com.apple.TextEdit&on=1"   # focused window enters (on=0: leaves) full screen
+///     open -g "zonetab://focus?wid=1234"                               # switch to a window, as the switcher does
 ///
-/// Output goes to ~/Library/Application Support/ZoneTab/{diagnostics,tile-result}.json.
+/// Output goes to ~/Library/Application Support/ZoneTab/: diagnostics.json and {tile,fullscreen,focus}-result.json.
 enum Diagnostics {
     static var directory: URL {
         URL.applicationSupportDirectory.appending(path: "ZoneTab", directoryHint: .isDirectory)
@@ -22,6 +24,28 @@ enum Diagnostics {
             var point = WindowInventory.mouseLocation
             if let x = query["x"].flatMap(Double.init), let y = query["y"].flatMap(Double.init) { point = CGPoint(x: x, y: y) }
             write(dump(at: point, app: app), to: "diagnostics.json")
+        case "fullscreen":
+            guard let bundleID = query["bundle"],
+                  let target = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else { return }
+            let pid = target.processIdentifier
+            let on = query["on"] != "0"
+            Task.detached {
+                fullScreenElement = AXWindow.focusedWindow(pid: pid)?.element ?? fullScreenElement
+                guard let element = fullScreenElement else { return }
+                let error = AXUIElementSetAttributeValue(element, "AXFullScreen" as CFString, on ? kCFBooleanTrue : kCFBooleanFalse)
+                try? await Task.sleep(for: .seconds(1.5))
+                await write(["error": "\(error.rawValue)", "spaces": currentSpaces()], to: "fullscreen-result.json")
+            }
+        case "focus":
+            guard let wid = query["wid"].flatMap(UInt32.init), let window = WindowInventory.windows(ids: [wid]).first else { return }
+            Task.detached {
+                await WindowFocuser.focus(pid: window.pid, windowID: wid, unhide: false)
+                try? await Task.sleep(for: .seconds(1.5))
+                let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier
+                await write(["targetPID": "\(window.pid)", "frontmostPID": "\(frontmost ?? 0)",
+                             "onScreen": "\(WindowInventory.window(id: wid)?.isOnScreen ?? false)",
+                             "spaces": currentSpaces()], to: "focus-result.json")
+            }
         case "tile":
             guard let command = query["action"].flatMap(TileCommand.init(rawValue:)),
                   let bundleID = query["bundle"],
@@ -36,6 +60,16 @@ enum Diagnostics {
         default:
             write(["error": "unknown command \(url.absoluteString)"], to: "diagnostics.json")
         }
+    }
+
+    nonisolated(unsafe) private static var fullScreenElement: AXUIElement?
+
+    /// Per display: the current Space's type and full-screen window, e.g. "type 4 fs_wid 123".
+    private nonisolated static func currentSpaces() -> String {
+        WindowInventory.managedDisplaySpaces().map { display in
+            let current = display["Current Space"] as? [String: Any]
+            return "\(display["Display Identifier"] ?? "?"): type \(current?["type"] ?? "?") fs_wid \(current?["fs_wid"] ?? "-")"
+        }.joined(separator: "; ")
     }
 
     private struct TileResult: Encodable {
@@ -55,6 +89,8 @@ enum Diagnostics {
         var window: WindowInfo
         var displayID: UInt32?
         var zones: [ZoneKind]
+        /// nil on displays without zones.
+        var tiled: Bool?
     }
 
     private struct EntryDump: Encodable {
@@ -69,6 +105,7 @@ enum Diagnostics {
         var zonesEnabled: Bool
         var replaceCommandTab: Bool
         var zoneConfig: ZoneConfig
+        var includeUntiledWindows: Bool
         var point: CGPoint
         var frontmostPID: Int32?
         var scope: Scope?
@@ -90,13 +127,14 @@ enum Diagnostics {
         let windows = snapshot.windows.filter(\.isCandidate).map { window -> WindowDump in
             let display = ScopeResolver.display(for: window.bounds, in: snapshot.displays)
             let zones = display.flatMap { ZoneLayout.zones(for: $0, config: config) }
-                .map { ScopeResolver.zoneMemberships(of: window.bounds, in: $0).sorted { $0.rawValue < $1.rawValue } } ?? []
-            return WindowDump(app: name(window.pid), window: window, displayID: display?.id, zones: zones)
+            let memberships = zones.map { ScopeResolver.zoneMemberships(of: window.bounds, in: $0).sorted { $0.rawValue < $1.rawValue } }
+            return WindowDump(app: name(window.pid), window: window, displayID: display?.id, zones: memberships ?? [],
+                              tiled: zones.map { ScopeResolver.isTiled(window.bounds, in: $0) })
         }
         return Dump(
             generatedAt: Date(), running: app.isRunning, accessibilityTrusted: Permissions.isAccessibilityTrusted,
             zonesEnabled: settings.zonesEnabled, replaceCommandTab: settings.replaceCommandTab, zoneConfig: config,
-            point: point, frontmostPID: snapshot.frontmostPID, scope: query?.scope,
+            includeUntiledWindows: settings.includeUntiledWindows, point: point, frontmostPID: snapshot.frontmostPID, scope: query?.scope,
             fullScreenFallback: query?.isFullScreenFallback ?? false,
             displays: snapshot.displays.map {
                 DisplayDump(display: $0, zones: ZoneLayout.zones(for: $0, config: config),

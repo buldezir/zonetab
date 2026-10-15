@@ -60,6 +60,11 @@ final class Settings: ObservableObject {
         }
     }
 
+    /// ⌘⇥ also lists floating windows from either zone of their display, and full-screen apps on that display.
+    @Published var includeUntiledWindows: Bool {
+        didSet { defaults.set(includeUntiledWindows, forKey: Keys.includeUntiledWindows) }
+    }
+
     var zoneConfig: ZoneConfig {
         ZoneConfig(side: primarySide, width: zoneWidthPercent.map { .fraction($0 / 100) } ?? .sixteenByNine)
     }
@@ -76,15 +81,18 @@ final class Settings: ObservableObject {
         static let replaceCommandTab = "replaceCommandTab"
         static let primarySide = "primarySide"
         static let zoneWidthPercent = "zoneWidthPercent"
+        static let includeUntiledWindows = "includeUntiledWindows"
         static let shortcuts = "shortcuts"
     }
 
     private init() {
-        defaults.register(defaults: [Keys.zonesEnabled: true, Keys.replaceCommandTab: true, Keys.primarySide: ZoneSide.left.rawValue])
+        defaults.register(defaults: [Keys.zonesEnabled: true, Keys.replaceCommandTab: true, Keys.primarySide: ZoneSide.left.rawValue,
+                                     Keys.includeUntiledWindows: true])
         zonesEnabled = defaults.bool(forKey: Keys.zonesEnabled)
         replaceCommandTab = defaults.bool(forKey: Keys.replaceCommandTab)
         primarySide = ZoneSide(rawValue: defaults.string(forKey: Keys.primarySide) ?? "") ?? .left
         zoneWidthPercent = defaults.object(forKey: Keys.zoneWidthPercent) as? Double
+        includeUntiledWindows = defaults.bool(forKey: Keys.includeUntiledWindows)
         var shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, $0.defaultCombo) })
         if let data = defaults.data(forKey: Keys.shortcuts),
            let stored = try? JSONDecoder().decode([String: KeyCombo].self, from: data) {

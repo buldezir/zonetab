@@ -11,9 +11,14 @@ struct SwitcherListBuilderTests {
     func inA(_ id: UInt32, _ pid: Int32) -> WindowInfo { WindowInfo(id: id, pid: pid, bounds: Fixtures.zoneA) }
     func inB(_ id: UInt32, _ pid: Int32) -> WindowInfo { WindowInfo(id: id, pid: pid, bounds: Fixtures.zoneB) }
 
-    func build(_ windows: [WindowInfo], apps: [AppInfo], frontmost: Int32?, scope: Scope) -> SwitcherList {
+    func build(_ windows: [WindowInfo], apps: [AppInfo], frontmost: Int32?, scope: Scope, includeUntiled: Bool = false) -> SwitcherList {
         SwitcherListBuilder.build(windows: windows, apps: Dictionary(uniqueKeysWithValues: apps.map { ($0.pid, $0) }),
-                                  frontmostPID: frontmost, ownPID: ownPID, scope: scope, displays: displays, config: ZoneConfig(side: .left))
+                                  frontmostPID: frontmost, ownPID: ownPID, scope: scope, displays: displays, config: ZoneConfig(side: .left),
+                                  includeUntiled: includeUntiled)
+    }
+
+    func fullScreen(_ id: UInt32, _ pid: Int32, bounds: CGRect = Fixtures.lg.frame) -> WindowInfo {
+        WindowInfo(id: id, pid: pid, bounds: bounds, isOnScreen: false, isFullScreen: true)
     }
 
     @Test func listsOnlyAppsInTheZoneInZOrder() {
@@ -99,6 +104,56 @@ struct SwitcherListBuilderTests {
         let windows = [inA(10, 1), inB(20, 2), WindowInfo(id: 30, pid: 3, bounds: CGRect(x: 4000, y: 0, width: 800, height: 600))]
         let list = build(windows, apps: [1, 2, 3].map { Fixtures.app($0) }, frontmost: 1, scope: scope)
         #expect(list.entries.map(\.pid) == [1, 2])
+    }
+
+    @Test func floatingWindowsAreListedFromEitherZone() {
+        let floating = WindowInfo(id: 30, pid: 3, bounds: CGRect(x: 1000, y: 400, width: 700, height: 500))
+        let windows = [inA(10, 1), floating, inB(20, 2)]
+        let apps = [1, 2, 3].map { Fixtures.app($0) }
+        #expect(build(windows, apps: apps, frontmost: 2, scope: zoneB).entries.map(\.pid) == [2])
+        let list = build(windows, apps: apps, frontmost: 2, scope: zoneB, includeUntiled: true)
+        #expect(list.entries == [SwitcherEntry(pid: 3, windowID: 30), SwitcherEntry(pid: 2, windowID: 20)])
+        #expect(list.initialSelection == 0)
+    }
+
+    @Test func fullScreenAppsSlotInByActivationOrder() {
+        let windows = [inA(10, 1), inA(11, 2), inA(12, 3), fullScreen(40, 4), fullScreen(50, 5)]
+        let apps = [Fixtures.app(1, rank: 0), Fixtures.app(2, rank: 3), Fixtures.app(3, rank: 4),
+                    Fixtures.app(4, rank: 1), Fixtures.app(5, rank: .max)]
+        // Without the setting, other Spaces are out of sight.
+        #expect(build(windows, apps: apps, frontmost: 1, scope: zoneA).entries.map(\.pid) == [1, 2, 3])
+        let list = build(windows, apps: apps, frontmost: 1, scope: zoneA, includeUntiled: true)
+        #expect(list.entries.map(\.pid) == [1, 4, 2, 3, 5])
+        #expect(list.entries[1] == SwitcherEntry(pid: 4, windowID: 40))
+        #expect(list.initialSelection == 1)
+    }
+
+    @Test func splitViewWindowsAreListedFromEitherZone() {
+        let left = fullScreen(40, 4, bounds: CGRect(x: 0, y: 0, width: 1914, height: 1620))
+        let right = fullScreen(50, 5, bounds: CGRect(x: 1926, y: 0, width: 1914, height: 1620))
+        let list = build([inB(20, 2), left, right], apps: [Fixtures.app(2), Fixtures.app(4), Fixtures.app(5)], frontmost: 2,
+                         scope: zoneB, includeUntiled: true)
+        #expect(Set(list.entries.map(\.pid)) == [2, 4, 5])
+    }
+
+    @Test func fullScreenAppsOnOtherDisplaysAreLeftOut() {
+        let onLaptop = fullScreen(40, 4, bounds: Fixtures.laptop.frame)
+        let list = build([inA(10, 1), onLaptop], apps: [Fixtures.app(1), Fixtures.app(4)], frontmost: 1, scope: zoneA, includeUntiled: true)
+        #expect(list.entries.map(\.pid) == [1])
+    }
+
+    @Test func appAlreadyListedKeepsItsVisibleWindow() {
+        let list = build([inA(10, 1), inA(11, 4), fullScreen(40, 4)], apps: [Fixtures.app(1, rank: 0), Fixtures.app(4, rank: 1)],
+                         frontmost: 1, scope: zoneA, includeUntiled: true)
+        #expect(list.entries == [SwitcherEntry(pid: 1, windowID: 10), SwitcherEntry(pid: 4, windowID: 11)])
+    }
+
+    @Test func hiddenAppsFloatingWindowsCount() {
+        let windows = [inB(20, 2), WindowInfo(id: 30, pid: 3, bounds: CGRect(x: 1000, y: 400, width: 700, height: 500), isOnScreen: false)]
+        let apps = [Fixtures.app(2), Fixtures.app(3, hidden: true)]
+        #expect(build(windows, apps: apps, frontmost: 2, scope: zoneB).entries.map(\.pid) == [2])
+        let list = build(windows, apps: apps, frontmost: 2, scope: zoneB, includeUntiled: true)
+        #expect(list.entries == [SwitcherEntry(pid: 2, windowID: 20), SwitcherEntry(pid: 3, windowID: 30, isHidden: true)])
     }
 
     @Test func fallbackListsEveryAppByActivation() {

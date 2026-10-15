@@ -55,6 +55,31 @@ struct ScopeResolverTests {
         #expect(!ScopeResolver.contains(scope, windowBounds: CGRect(x: 3700, y: 100, width: 1000, height: 500), displays: displays, config: ZoneConfig(side: .left)))
     }
 
+    @Test func tiledMeansFillingAZoneOrTheDisplay() {
+        let zones = Fixtures.lgZones
+        #expect(ScopeResolver.isTiled(Fixtures.zoneA, in: zones))
+        #expect(ScopeResolver.isTiled(Fixtures.lg.usableFrame, in: zones))
+        #expect(ScopeResolver.isTiled(Fixtures.lg.frame, in: zones)) // full screen
+        // A terminal snapped to zone B stops short by part of a character cell.
+        #expect(ScopeResolver.isTiled(CGRect(x: 2880, y: 33, width: 953, height: 1572), in: zones))
+        #expect(!ScopeResolver.isTiled(CGRect(x: 1000, y: 400, width: 700, height: 500), in: zones)) // settings window
+        #expect(!ScopeResolver.isTiled(CGRect(x: 0, y: 33, width: 2880, height: 800), in: zones))  // half height
+    }
+
+    @Test func untiledWindowsBelongToEveryZoneOfTheirDisplay() {
+        let zoneB = Scope(displayID: 1, zone: .secondary, rect: Fixtures.zoneB)
+        let settingsWindow = CGRect(x: 1000, y: 400, width: 700, height: 500)
+        #expect(!ScopeResolver.contains(zoneB, windowBounds: settingsWindow, displays: displays, config: ZoneConfig()))
+        #expect(ScopeResolver.contains(zoneB, windowBounds: settingsWindow, displays: displays, config: ZoneConfig(),
+                                       untiledInEveryZone: true))
+        // Tiled windows keep to their zone.
+        #expect(!ScopeResolver.contains(zoneB, windowBounds: Fixtures.zoneA, displays: displays, config: ZoneConfig(),
+                                        untiledInEveryZone: true))
+        // Other displays stay out of scope.
+        #expect(!ScopeResolver.contains(zoneB, windowBounds: CGRect(x: 4000, y: 100, width: 500, height: 400),
+                                        displays: displays, config: ZoneConfig(), untiledInEveryZone: true))
+    }
+
     @Test func pointBetweenDisplaysPicksNearest() {
         // Below the laptop (183 pt away) and right of the LG (660 pt away).
         #expect(ScopeResolver.display(at: CGPoint(x: 4500, y: 1300), in: displays)?.id == 2)

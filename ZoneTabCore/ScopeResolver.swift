@@ -18,6 +18,8 @@ public struct Scope: Sendable, Equatable, Codable {
 public enum ScopeResolver {
     /// A window belongs to any zone it covers at least this much of, in addition to the zone holding its centre.
     public static let zoneCoverageThreshold: CGFloat = 0.5
+    /// A window counts as tiled when it covers at least this share of a zone's width and height.
+    public static let tiledCoverage: CGFloat = 0.9
 
     /// The display containing `point`, or the nearest one if the point is in a gap between displays.
     public static func display(at point: CGPoint, in displays: [DisplayInfo]) -> DisplayInfo? {
@@ -59,10 +61,25 @@ public enum ScopeResolver {
         return Scope(displayID: display.id, zone: nil, rect: display.usableFrame)
     }
 
-    public static func contains(_ scope: Scope, windowBounds: CGRect, displays: [DisplayInfo], config: ZoneConfig) -> Bool {
+    /// Whether a window fills a zone, or all zones together. Apps that resize in steps (terminals) stop a little
+    /// short of a zone's edges, so this isn't an exact match.
+    public static func isTiled(_ windowBounds: CGRect, in zones: [Zone]) -> Bool {
+        guard let first = zones.first else { return false }
+        let all = zones.dropFirst().reduce(first.rect) { $0.union($1.rect) }
+        return (zones.map(\.rect) + [all]).contains { rect in
+            let overlap = windowBounds.intersection(rect)
+            return !overlap.isNull && overlap.width >= rect.width * tiledCoverage && overlap.height >= rect.height * tiledCoverage
+        }
+    }
+
+    /// - Parameter untiledInEveryZone: windows that don't fill a zone (settings windows, dialogs, anything sized
+    ///   by hand) belong to every zone of their display rather than to the zone they happen to sit in.
+    public static func contains(_ scope: Scope, windowBounds: CGRect, displays: [DisplayInfo], config: ZoneConfig,
+                                untiledInEveryZone: Bool = false) -> Bool {
         guard let display = display(for: windowBounds, in: displays), display.id == scope.displayID else { return false }
         guard let zoneKind = scope.zone else { return true }
         guard let zones = ZoneLayout.zones(for: display, config: config) else { return true }
+        if untiledInEveryZone, !isTiled(windowBounds, in: zones) { return true }
         return zoneMemberships(of: windowBounds, in: zones).contains(zoneKind)
     }
 

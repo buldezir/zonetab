@@ -27,13 +27,21 @@ public struct SwitcherList: Sendable, Equatable, Codable {
 public enum SwitcherListBuilder {
     /// Apps with a window in `scope`, most recently used first.
     ///
-    /// - Parameter windows: front-to-back z-order, as CGWindowList returns it. Off-screen windows are only used
-    ///   for hidden apps (their windows keep their last frame).
+    /// - Parameters:
+    ///   - windows: front-to-back z-order, as CGWindowList returns it. Off-screen windows are only used for hidden
+    ///     apps (their windows keep their last frame) and, with `includeUntiled`, for full-screen windows.
+    ///   - includeUntiled: windows that aren't tiled belong to the whole display instead of one zone: floating
+    ///     windows anywhere on it, and full-screen windows on its other Spaces.
     public static func build(windows: [WindowInfo], apps: [Int32: AppInfo], frontmostPID: Int32?, ownPID: Int32,
-                             scope: Scope, displays: [DisplayInfo], config: ZoneConfig) -> SwitcherList {
+                             scope: Scope, displays: [DisplayInfo], config: ZoneConfig,
+                             includeUntiled: Bool = false) -> SwitcherList {
         func eligible(_ pid: Int32) -> AppInfo? {
             guard pid != ownPID, let app = apps[pid], app.isRegular else { return nil }
             return app
+        }
+        func inScope(_ window: WindowInfo) -> Bool {
+            ScopeResolver.contains(scope, windowBounds: window.bounds, displays: displays, config: config,
+                                   untiledInEveryZone: includeUntiled)
         }
 
         // Visible windows: z-order is the most-recently-used order, so the first in-scope window per app wins.
@@ -43,17 +51,28 @@ public enum SwitcherListBuilder {
         for window in windows where window.isOnScreen && window.isCandidate {
             guard let app = eligible(window.pid), !app.isHidden else { continue }
             if topmostWindow[window.pid] == nil { topmostWindow[window.pid] = window.id }
-            guard !listed.contains(window.pid),
-                  ScopeResolver.contains(scope, windowBounds: window.bounds, displays: displays, config: config) else { continue }
+            guard !listed.contains(window.pid), inScope(window) else { continue }
             listed.insert(window.pid)
             entries.append(SwitcherEntry(pid: window.pid, windowID: window.id))
+        }
+
+        // Full-screen windows on the display's other Spaces have no place in the z-order; they go before the
+        // first entry whose app was activated less recently.
+        if includeUntiled {
+            func rank(_ pid: Int32) -> Int { apps[pid]?.activationRank ?? .max }
+            for window in windows where !window.isOnScreen && window.isFullScreen && window.isCandidate {
+                guard let app = eligible(window.pid), !app.isHidden, !listed.contains(window.pid),
+                      ScopeResolver.display(for: window.bounds, in: displays)?.id == scope.displayID else { continue }
+                listed.insert(window.pid)
+                let index = entries.firstIndex { rank($0.pid) > app.activationRank } ?? entries.count
+                entries.insert(SwitcherEntry(pid: window.pid, windowID: window.id), at: index)
+            }
         }
 
         // Hidden apps go last, by activation order.
         var hidden: [(rank: Int, entry: SwitcherEntry)] = []
         for window in windows where !window.isOnScreen && window.isCandidate {
-            guard let app = eligible(window.pid), app.isHidden, !listed.contains(window.pid),
-                  ScopeResolver.contains(scope, windowBounds: window.bounds, displays: displays, config: config) else { continue }
+            guard let app = eligible(window.pid), app.isHidden, !listed.contains(window.pid), inScope(window) else { continue }
             listed.insert(window.pid)
             hidden.append((app.activationRank, SwitcherEntry(pid: window.pid, windowID: window.id, isHidden: true)))
         }

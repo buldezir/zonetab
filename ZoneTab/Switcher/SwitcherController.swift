@@ -117,7 +117,7 @@ final class SwitcherController {
 
     /// What ⌘⇥ lists for a cursor position (Quartz coordinates). Also used by the debug diagnostics.
     static func query(inventory: WindowInventory, settings: Settings, at point: CGPoint) -> Query? {
-        let snapshot = inventory.snapshot()
+        let snapshot = inventory.snapshot(includeFullScreen: settings.includeUntiledWindows)
         guard let scope = ScopeResolver.scope(at: point, displays: snapshot.displays,
                                               zonesEnabled: settings.zonesEnabled, config: settings.zoneConfig) else { return nil }
         let displayUUID = snapshot.displays.first { $0.id == scope.displayID }?.uuid ?? ""
@@ -129,7 +129,7 @@ final class SwitcherController {
         }
         let list = SwitcherListBuilder.build(windows: snapshot.windows, apps: snapshot.apps, frontmostPID: snapshot.frontmostPID,
                                              ownPID: snapshot.ownPID, scope: scope, displays: snapshot.displays,
-                                             config: settings.zoneConfig)
+                                             config: settings.zoneConfig, includeUntiled: settings.includeUntiledWindows)
         return Query(scope: scope, list: list, snapshot: snapshot, isFullScreenFallback: false)
     }
 

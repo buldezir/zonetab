@@ -23,6 +23,11 @@ struct SettingsView: View {
 
             Section {
                 Toggle("Replace ⌘⇥ with ZoneTab's switcher", isOn: $settings.replaceCommandTab)
+                Toggle(isOn: $settings.includeUntiledWindows) {
+                    Text("Always include untiled windows")
+                    Text("Floating windows, such as settings and dialogs, and full-screen apps are listed from anywhere on their display, not only from their zone.")
+                }
+                .disabled(!settings.replaceCommandTab)
             } header: {
                 Text("App switcher")
             } footer: {

@@ -1,5 +1,6 @@
 import ApplicationServices
 import CoreGraphics
+import Foundation
 
 /// An Accessibility window element. AX calls block until the target app answers, so this type is nonisolated and
 /// meant to be used off the main thread.
@@ -33,6 +34,24 @@ nonisolated struct AXWindow: @unchecked Sendable {
     static func window(pid: pid_t, id: CGWindowID) -> AXWindow? {
         windows(pid: pid).first { $0.windowID == id }
     }
+
+    /// Like `window(pid:id:)`, but also finds windows on other Spaces, which `kAXWindowsAttribute` leaves out.
+    /// Element ids are small and handed out in order, so the window is among the first few thousand.
+    static func windowOnAnySpace(pid: pid_t, id: CGWindowID) -> AXWindow? {
+        if let window = window(pid: pid, id: id) { return window }
+        var token = Data(count: 20)
+        withUnsafeBytes(of: pid) { token.replaceSubrange(0..<4, with: $0) }
+        withUnsafeBytes(of: UInt32(0x636f_636f)) { token.replaceSubrange(8..<12, with: $0) }
+        for elementID in UInt64(0)..<searchLimit {
+            withUnsafeBytes(of: elementID) { token.replaceSubrange(12..<20, with: $0) }
+            guard let element = _AXUIElementCreateWithRemoteToken(token as CFData) else { continue }
+            let window = AXWindow(element: element, pid: pid)
+            if window.windowID == id { return window }
+        }
+        return nil
+    }
+
+    private static let searchLimit: UInt64 = 5000
 
     var windowID: CGWindowID? {
         var id: CGWindowID = 0

@@ -9,14 +9,18 @@ public struct WindowInfo: Sendable, Equatable, Codable {
     public var layer: Int
     public var alpha: Double
     public var isOnScreen: Bool
+    /// The window fills a full-screen Space (alone, or as one side of Split View).
+    public var isFullScreen: Bool
 
-    public init(id: UInt32, pid: Int32, bounds: CGRect, layer: Int = 0, alpha: Double = 1, isOnScreen: Bool = true) {
+    public init(id: UInt32, pid: Int32, bounds: CGRect, layer: Int = 0, alpha: Double = 1, isOnScreen: Bool = true,
+                isFullScreen: Bool = false) {
         self.id = id
         self.pid = pid
         self.bounds = bounds
         self.layer = layer
         self.alpha = alpha
         self.isOnScreen = isOnScreen
+        self.isFullScreen = isFullScreen
     }
 
     public static let minimumSize = CGSize(width: 100, height: 50)

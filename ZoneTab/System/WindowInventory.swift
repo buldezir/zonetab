@@ -3,7 +3,8 @@ import ZoneTabCore
 
 struct InventorySnapshot {
     var displays: [DisplayInfo]
-    /// On-screen windows in front-to-back order, followed by hidden apps' windows.
+    /// On-screen windows in front-to-back order, followed by hidden apps' windows and, if asked for, full-screen
+    /// windows on Spaces that aren't showing.
     var windows: [WindowInfo]
     var apps: [Int32: AppInfo]
     var frontmostPID: Int32?
@@ -42,7 +43,10 @@ final class WindowInventory {
         activationOrder = order
     }
 
-    func snapshot(includeAllSpaces: Bool = false) -> InventorySnapshot {
+    /// - Parameters:
+    ///   - includeAllSpaces: every window on every Space, for the full-screen fallback list.
+    ///   - includeFullScreen: full-screen windows on Spaces that aren't showing, marked `isFullScreen`.
+    func snapshot(includeAllSpaces: Bool = false, includeFullScreen: Bool = false) -> InventorySnapshot {
         let ranks = Dictionary(activationOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
         var apps: [Int32: AppInfo] = [:]
         for app in NSWorkspace.shared.runningApplications where !app.isTerminated {
@@ -60,6 +64,17 @@ final class WindowInventory {
                 !onScreen.contains($0.id) && (includeAllSpaces || hiddenPIDs.contains($0.pid))
             }.map { var window = $0; window.isOnScreen = false; return window }
         }
+        if includeFullScreen {
+            let fullScreen = Self.fullScreenWindowIDs()
+            for index in windows.indices where fullScreen.contains(windows[index].id) { windows[index].isFullScreen = true }
+            let missing = fullScreen.subtracting(windows.map(\.id))
+            windows += Self.windows(ids: Array(missing)).map {
+                var window = $0
+                window.isOnScreen = false
+                window.isFullScreen = true
+                return window
+            }
+        }
 
         return InventorySnapshot(displays: Self.displays(), windows: windows, apps: apps,
                                  frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier,
@@ -76,6 +91,15 @@ final class WindowInventory {
     nonisolated static func window(id: CGWindowID) -> WindowInfo? {
         guard let list = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]] else { return nil }
         return list.first.flatMap(windowInfo(from:))
+    }
+
+    /// Descriptions of specific windows, wherever they are.
+    nonisolated static func windows(ids: [CGWindowID]) -> [WindowInfo] {
+        guard !ids.isEmpty else { return [] }
+        var values: [UnsafeRawPointer?] = ids.map { UnsafeRawPointer(bitPattern: UInt($0)) }
+        let array = values.withUnsafeMutableBufferPointer { CFArrayCreate(nil, $0.baseAddress, $0.count, nil) }
+        guard let array, let list = CGWindowListCreateDescriptionFromArray(array) as? [[String: Any]] else { return [] }
+        return list.compactMap(windowInfo(from:))
     }
 
     private nonisolated static func windowInfo(from entry: [String: Any]) -> WindowInfo? {
@@ -113,10 +137,30 @@ final class WindowInventory {
         return string as String
     }
 
+    nonisolated static func managedDisplaySpaces() -> [[String: Any]] {
+        CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: Any]] ?? []
+    }
+
+    /// Windows that fill a full-screen Space, on every display. A Split View Space has one per side.
+    nonisolated static func fullScreenWindowIDs() -> Set<CGWindowID> {
+        var ids = Set<CGWindowID>()
+        for display in managedDisplaySpaces() {
+            for space in display["Spaces"] as? [[String: Any]] ?? [] where (space["type"] as? NSNumber)?.intValue == 4 {
+                let tiles = (space["TileLayoutManager"] as? [String: Any])?["TileSpaces"] as? [[String: Any]] ?? []
+                let tileIDs = tiles.compactMap { ($0["TileWindowID"] as? NSNumber)?.uint32Value }
+                if !tileIDs.isEmpty {
+                    ids.formUnion(tileIDs)
+                } else if let id = (space["fs_wid"] as? NSNumber)?.uint32Value {
+                    ids.insert(id)
+                }
+            }
+        }
+        return ids
+    }
+
     /// Whether the given display is currently showing a full-screen Space.
     nonisolated static func isFullScreenSpaceActive(displayUUID: String) -> Bool {
-        guard let spaces = CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: Any]] else { return false }
-        for display in spaces {
+        for display in managedDisplaySpaces() {
             let identifier = display["Display Identifier"] as? String
             guard identifier == "Main" || identifier?.caseInsensitiveCompare(displayUUID) == .orderedSame else { continue }
             let current = display["Current Space"] as? [String: Any]

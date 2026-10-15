@@ -20,13 +20,18 @@ A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle 
 
 **What the switcher lists:**
 - Apps whose windows are on the current Space, and hidden apps (⌘H, shown last and dimmed).
+- With "Always include untiled windows" (on by default), untiled windows count for the whole display instead of one zone:
+  - floating windows, such as settings and dialogs;
+  - full-screen apps on that display's other Spaces, placed by when you last used them.
+
+  A window counts as tiled when it fills at least 90% of a zone's width and height, or of the whole display.
 - If the cursor's display is showing a full-screen Space, it lists every app instead.
 - Apps with no windows, or only minimized windows, are not listed.
 
 **Settings** (menu-bar icon → Settings…):
 - turn zones on or off, and put the main zone on the left or right;
 - set the main zone's width with a slider (the zones are previewed on screen while you drag; it snaps back to 16:9 near that width, or use "Use 16:9 (4K)");
-- turn the ⌘⇥ replacement on or off;
+- turn the ⌘⇥ replacement on or off, and choose whether untiled windows are listed from every zone;
 - change the window shortcuts;
 - launch at login.
 
@@ -68,6 +73,11 @@ scripts/dump.sh 3360 800
 Tile a scratch TextEdit window through every command and check where it ends up:
 ```bash
 scripts/e2e-tiling.sh
+```
+
+Put a scratch TextEdit window in full screen, check that ⌘⇥ lists it from both zones, and switch to it and back. Your display changes Spaces a few times while this runs:
+```bash
+scripts/e2e-fullscreen.sh
 ```
 
 Follow ZoneTab's log:

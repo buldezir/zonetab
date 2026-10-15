@@ -29,17 +29,20 @@ nonisolated enum WindowFocuser {
             app.activate()
             return
         }
-        bringForward(pid: pid, windowID: windowID, app: app)
+        // Making the window key brings its app forward but stays on the current Space; raising it through
+        // Accessibility is what moves to the window's Space (a full-screen window, say).
+        let axWindow = AXWindow.windowOnAnySpace(pid: pid, id: windowID)
+        bringForward(pid: pid, windowID: windowID, axWindow: axWindow, app: app)
 
         // Some apps re-order their windows right after activation; check once and repeat if we lost.
         try? await Task.sleep(for: .milliseconds(150))
         if NSWorkspace.shared.frontmostApplication?.processIdentifier != pid {
             Log.switcher.debug("Focus retry for pid \(pid) window \(windowID)")
-            bringForward(pid: pid, windowID: windowID, app: app)
+            bringForward(pid: pid, windowID: windowID, axWindow: axWindow, app: app)
         }
     }
 
-    private static func bringForward(pid: pid_t, windowID: CGWindowID, app: NSRunningApplication) {
+    private static func bringForward(pid: pid_t, windowID: CGWindowID, axWindow: AXWindow?, app: NSRunningApplication) {
         var psn = ProcessSerialNumber()
         if let setFront = SkyLight.setFrontProcessWithOptions, let post = SkyLight.postEventRecordTo,
            ZTGetProcessForPID(pid, &psn) == noErr {
@@ -48,7 +51,7 @@ nonisolated enum WindowFocuser {
         } else {
             app.activate()
         }
-        AXWindow.window(pid: pid, id: windowID)?.raise()
+        axWindow?.raise()
     }
 
     /// Posts the synthetic event record WindowServer uses to make a window key. Layout as used by AltTab on
@@ -64,3 +67,4 @@ nonisolated enum WindowFocuser {
         _ = bytes.withUnsafeMutableBufferPointer { buffer in post(&psn, buffer.baseAddress!) }
     }
 }
+

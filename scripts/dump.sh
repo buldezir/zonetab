@@ -19,7 +19,7 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 r = lambda rect: [round(v) for v in rect[0] + rect[1]]
 print(f'running={d["running"]} accessibility={d["accessibilityTrusted"]} zones={d["zonesEnabled"]} config={d["zoneConfig"]} '
-      f'replaceCmdTab={d["replaceCommandTab"]} point={[round(v) for v in d["point"]]}')
+      f'replaceCmdTab={d["replaceCommandTab"]} includeUntiled={d["includeUntiledWindows"]} point={[round(v) for v in d["point"]]}')
 for disp in d["displays"]:
     di = disp["display"]
     print(f'display {di["id"]}: frame={r(di["frame"])} usable={r(di["usableFrame"])} fullScreenSpace={disp["fullScreenSpace"]}')
@@ -31,7 +31,8 @@ print("scope:", scope and f'display {scope["displayID"]} zone={scope.get("zone",
 print("windows:")
 for w in d["windows"]:
     win = w["window"]
-    print(f'   {w["app"][:24]:24} wid={win["id"]:<6} onscreen={str(win["isOnScreen"]):5} bounds={r(win["bounds"])} zones={w["zones"]}')
+    flags = ("fullscreen " if win["isFullScreen"] else "") + {True: "tiled", False: "untiled"}.get(w.get("tiled"), "")
+    print(f'   {w["app"][:24]:24} wid={win["id"]:<6} onscreen={str(win["isOnScreen"]):5} bounds={r(win["bounds"])} zones={w["zones"]} {flags}')
 entries = [f'{e["app"]}{" (hidden)" if e["entry"]["isHidden"] else ""}' for e in d["switcher"]]
 print("⌘⇥ list:", entries, "initial selection:", d.get("initialSelection"))
 EOF
