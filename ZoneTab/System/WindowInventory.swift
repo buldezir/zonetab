@@ -137,14 +137,15 @@ final class WindowInventory {
         return string as String
     }
 
-    /// UUIDs of the displays that are connected right now. Unlike `displays()`, which reads AppKit's copy, this asks
-    /// the WindowServer, so a display is gone from it as soon as it's unplugged.
-    nonisolated static func onlineDisplayUUIDs() -> Set<String> {
+    /// The displays connected right now, by UUID, with their bounds. Unlike `displays()`, which reads AppKit's copy,
+    /// this asks the WindowServer, so a display is gone from it as soon as it's unplugged. A laptop's built-in
+    /// display is offline while the lid is closed.
+    nonisolated static func onlineDisplays() -> [String: CGRect] {
         var count: UInt32 = 0
-        guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else { return [] }
+        guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else { return [:] }
         var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
-        guard CGGetOnlineDisplayList(count, &ids, &count) == .success else { return [] }
-        return Set(ids.prefix(Int(count)).map(uuid(of:)))
+        guard CGGetOnlineDisplayList(count, &ids, &count) == .success else { return [:] }
+        return Dictionary(ids.prefix(Int(count)).map { (uuid(of: $0), CGDisplayBounds($0)) }, uniquingKeysWith: { first, _ in first })
     }
 
     nonisolated static func managedDisplaySpaces() -> [[String: Any]] {

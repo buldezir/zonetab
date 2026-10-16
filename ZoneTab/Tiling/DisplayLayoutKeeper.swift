@@ -10,7 +10,8 @@ nonisolated struct AppliedChange: Codable, Sendable {
 
 /// Keeps the tiles of zoned displays across unplugging them. While a display is connected, its layout is recorded
 /// every few seconds. Once it's gone, its tiled windows are maximized wherever macOS put them; when it's back, they
-/// return to their zones.
+/// return to their zones. Any other change to the displays (closing or opening a laptop's lid, say) also puts
+/// every connected display's windows back where they were.
 ///
 /// The record has to be from before the unplug: by the time anything is notified, macOS has already moved the
 /// windows. So recording stops as soon as the display configuration starts changing, and nothing is moved until it
@@ -32,6 +33,8 @@ final class DisplayLayoutKeeper {
     private var recordTimer: Timer?
     private var settleTimer: Timer?
     private var isChanging = false
+    /// Online displays and their bounds when the configuration last settled.
+    private var settledConfiguration: [String: CGRect] = [:]
     /// Recorded displays seen offline while the configuration was changing, even if they're back by the end.
     private var wentOffline: Set<String> = []
     /// Layouts being applied. Recording waits for them, so a half-moved layout isn't saved.
@@ -67,7 +70,8 @@ final class DisplayLayoutKeeper {
         }
         // Displays unplugged while ZoneTab wasn't running get their tiles back when they return, or now if they
         // already have.
-        let online = WindowInventory.onlineDisplayUUIDs()
+        settledConfiguration = WindowInventory.onlineDisplays()
+        let online = Set(settledConfiguration.keys)
         state.away.formUnion(Set(state.layouts.keys).subtracting(online))
         if !state.away.isDisjoint(with: online) {
             isChanging = true
@@ -90,11 +94,15 @@ final class DisplayLayoutKeeper {
     private func record() {
         guard isEnabled, !isChanging, applying == 0 else { return }
         let snapshot = inventory.snapshot(includeAllSpaces: true, includeFullScreen: true)
-        // Asked after the window list was read: a display that is still online now was online when the list was
-        // taken, so its windows hadn't been moved off it yet.
-        let online = WindowInventory.onlineDisplayUUIDs()
+        // Asked after the window list was read: if the displays are still as they were when the configuration last
+        // settled, the list was taken before macOS started moving windows around for a change.
+        let configuration = WindowInventory.onlineDisplays()
+        guard configuration == settledConfiguration else {
+            displaysChanging()
+            return
+        }
         var layouts = state.layouts
-        for display in snapshot.displays where online.contains(display.uuid) && !state.away.contains(display.uuid) {
+        for display in snapshot.displays where configuration[display.uuid] != nil && !state.away.contains(display.uuid) {
             layouts[display.uuid] = LayoutMemory.record(display: display, displays: snapshot.displays, windows: snapshot.windows,
                                                         apps: snapshot.apps, ownPID: snapshot.ownPID, config: settings.zoneConfig)
         }
@@ -109,7 +117,7 @@ final class DisplayLayoutKeeper {
     fileprivate func displaysChanging() {
         guard isEnabled else { return }
         isChanging = true
-        wentOffline.formUnion(Set(state.layouts.keys).subtracting(WindowInventory.onlineDisplayUUIDs()))
+        wentOffline.formUnion(Set(state.layouts.keys).subtracting(WindowInventory.onlineDisplays().keys))
         scheduleSettle()
     }
 
@@ -121,23 +129,25 @@ final class DisplayLayoutKeeper {
     }
 
     private func settle() {
-        let displays = WindowInventory.displays()
+        let configuration = WindowInventory.onlineDisplays()
         // With no display at all (lid closed, nothing plugged in) there is nowhere to put windows yet.
-        guard !displays.isEmpty else { return }
+        guard !configuration.isEmpty else { return }
         isChanging = false
-        let online = Set(displays.map(\.uuid))
-        let before = state
-        for uuid in state.layouts.keys.sorted() {
-            if !online.contains(uuid) {
-                guard state.away.insert(uuid).inserted else { continue }
-                Log.tiling.info("Display \(uuid, privacy: .public) unplugged: maximizing its windows")
-                apply(.maximize, to: uuid)
-            } else if state.away.remove(uuid) != nil || wentOffline.contains(uuid) {
-                Log.tiling.info("Display \(uuid, privacy: .public) is back: restoring its tiles")
-                apply(.restore, to: uuid)
-            }
-        }
+        let actions = LayoutMemory.actions(recorded: Set(state.layouts.keys), away: state.away, wentOffline: wentOffline,
+                                           online: Set(configuration.keys), rearranged: configuration != settledConfiguration)
+        settledConfiguration = configuration
         wentOffline.removeAll()
+        let before = state
+        for uuid in actions.maximize {
+            Log.tiling.info("Display \(uuid, privacy: .public) unplugged: maximizing its windows")
+            state.away.insert(uuid)
+            apply(.maximize, to: uuid)
+        }
+        for uuid in actions.restore {
+            Log.tiling.info("Displays changed: restoring the layout of \(uuid, privacy: .public)")
+            state.away.remove(uuid)
+            apply(.restore, to: uuid)
+        }
         if state != before { save() }
     }
 

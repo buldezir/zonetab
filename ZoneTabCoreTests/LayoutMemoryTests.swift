@@ -129,6 +129,36 @@ struct LayoutMemoryTests {
         #expect(changes.first?.frame == laptopAlone.usableFrame)
     }
 
+    func actions(away: Set<String> = [], wentOffline: Set<String> = [], online: Set<String>, rearranged: Bool) -> DisplayChangeActions {
+        LayoutMemory.actions(recorded: ["LG"], away: away, wentOffline: wentOffline, online: online, rearranged: rearranged)
+    }
+
+    @Test func unpluggingMaximizesOnce() {
+        #expect(actions(wentOffline: ["LG"], online: ["Laptop"], rearranged: true) == DisplayChangeActions(maximize: ["LG"], restore: []))
+        // Opening the lid on the laptop later, the LG is still away: nothing more to do.
+        #expect(actions(away: ["LG"], online: ["Laptop"], rearranged: true) == DisplayChangeActions(maximize: [], restore: []))
+    }
+
+    @Test func pluggingBackInRestores() {
+        #expect(actions(away: ["LG"], online: ["LG", "Laptop"], rearranged: true) == DisplayChangeActions(maximize: [], restore: ["LG"]))
+        // Plugged back in with the lid closed: the configuration is the same as before it went away.
+        #expect(actions(away: ["LG"], online: ["LG"], rearranged: false) == DisplayChangeActions(maximize: [], restore: ["LG"]))
+    }
+
+    @Test func briefDropOutRestores() {
+        #expect(actions(wentOffline: ["LG"], online: ["LG"], rearranged: false) == DisplayChangeActions(maximize: [], restore: ["LG"]))
+    }
+
+    @Test func lidClosingOrOpeningRestores() {
+        // The laptop's display goes offline (lid closed) or comes back (lid opened); the LG stays connected.
+        #expect(actions(online: ["LG"], rearranged: true) == DisplayChangeActions(maximize: [], restore: ["LG"]))
+        #expect(actions(online: ["LG", "Laptop"], rearranged: true) == DisplayChangeActions(maximize: [], restore: ["LG"]))
+    }
+
+    @Test func changesThatMoveNothingDoNothing() {
+        #expect(actions(online: ["LG"], rearranged: false) == DisplayChangeActions(maximize: [], restore: []))
+    }
+
     @Test func fitShrinksAndMovesInside() {
         let bounds = CGRect(x: 0, y: 38, width: 1728, height: 1079)
         #expect(LayoutMemory.fit(CGRect(x: 1500, y: 0, width: 600, height: 400), in: bounds) == CGRect(x: 1128, y: 38, width: 600, height: 400))

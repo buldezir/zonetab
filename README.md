@@ -32,6 +32,10 @@ A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle 
 - While a zoned display is connected, ZoneTab records where each of its windows is, on every Space. The record is updated every few seconds and after each snap.
 - When you unplug the display, its tiled windows are maximized on the display they end up on. Floating windows are only moved if they no longer fit.
 - When you plug it back in, tiled windows go back to their zones, using the current zone settings, and floating windows go back to where they were. That includes windows you moved in the meantime. Windows opened while it was unplugged stay where they are.
+- Closing or opening a laptop's lid counts as a display change too: afterwards, the display gets its recorded layout back.
+  - When the lid closes, its tiles stay put. The laptop's windows land wherever macOS puts them, and are recorded from then on.
+  - When the lid opens, windows macOS moves to the laptop come back.
+- Unplugging the display with the lid closed works too. The Mac sleeps until you open the lid, and the windows are maximized on the laptop then.
 - Windows get their frames back, but not necessarily their Space, and the stacking order isn't restored.
 - The record is kept in `~/Library/Application Support/ZoneTab/display-layouts.json`, so it survives restarting ZoneTab. Restarting an app gives its windows new ids, so those windows aren't restored.
 

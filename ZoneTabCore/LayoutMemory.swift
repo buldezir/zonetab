@@ -52,6 +52,19 @@ public struct FrameChange: Sendable, Equatable, Codable {
     }
 }
 
+/// What to do once the display configuration has settled after a change.
+public struct DisplayChangeActions: Sendable, Equatable {
+    /// Recorded displays that are gone: their windows are maximized wherever they ended up.
+    public var maximize: [String]
+    /// Recorded displays that are connected and get their layout back.
+    public var restore: [String]
+
+    public init(maximize: [String], restore: [String]) {
+        self.maximize = maximize
+        self.restore = restore
+    }
+}
+
 /// Keeps a zoned display's tiles across unplugging it: record its layout while it's connected, maximize its tiled
 /// windows wherever they end up once it's gone, and put them back when it returns.
 public enum LayoutMemory {
@@ -118,6 +131,21 @@ public enum LayoutMemory {
             }
             return change(window, frame, usable)
         }
+    }
+
+    /// - Parameters:
+    ///   - recorded: displays with a recorded layout.
+    ///   - away: displays already handled as unplugged.
+    ///   - wentOffline: recorded displays seen offline during the change, even if they're back by now.
+    ///   - online: displays connected now.
+    ///   - rearranged: whether displays came, went or moved. macOS moves windows around on every display then:
+    ///     closing the lid piles the laptop's windows onto the others, opening it may move some back. So every
+    ///     connected display gets its layout back, not only one that was unplugged.
+    public static func actions(recorded: Set<String>, away: Set<String>, wentOffline: Set<String>, online: Set<String>,
+                               rearranged: Bool) -> DisplayChangeActions {
+        DisplayChangeActions(
+            maximize: recorded.subtracting(online).subtracting(away).sorted(),
+            restore: recorded.intersection(online).filter { rearranged || away.contains($0) || wentOffline.contains($0) }.sorted())
     }
 
     /// `frame`, shrunk to fit `bounds` if it's bigger, and moved inside them.
