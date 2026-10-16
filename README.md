@@ -99,3 +99,7 @@ Open them from the menu-bar icon → Settings…:
 The menu-bar menu also has quick toggles for zones, the main zone's side and the ⌘⇥ replacement.
 
 Building and development notes are in [AGENTS.md](AGENTS.md).
+
+## License
+
+ZoneTab is licensed under the [GNU Affero General Public License v3.0](LICENSE).
