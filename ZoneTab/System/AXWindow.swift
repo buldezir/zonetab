@@ -36,9 +36,22 @@ nonisolated struct AXWindow: @unchecked Sendable {
     }
 
     /// Like `window(pid:id:)`, but also finds windows on other Spaces, which `kAXWindowsAttribute` leaves out.
-    /// Element ids are small and handed out in order, so the window is among the first few thousand.
     static func windowOnAnySpace(pid: pid_t, id: CGWindowID) -> AXWindow? {
-        if let window = window(pid: pid, id: id) { return window }
+        windowsOnAnySpace(pid: pid, ids: [id])[id]
+    }
+
+    /// The app's windows with these ids, on any Space. Element ids are small and handed out in order, so windows
+    /// are among the first few thousand.
+    static func windowsOnAnySpace(pid: pid_t, ids: Set<CGWindowID>) -> [CGWindowID: AXWindow] {
+        var found: [CGWindowID: AXWindow] = [:]
+        for window in windows(pid: pid) {
+            if let id = window.windowID, ids.contains(id) { found[id] = window }
+        }
+        guard found.count < ids.count else { return found }
+        let start = ContinuousClock.now
+        defer {
+            Log.app.debug("Searched pid \(pid)'s elements for \(ids.count) windows, found \(found.count) in \((ContinuousClock.now - start).description, privacy: .public)")
+        }
         var token = Data(count: 20)
         withUnsafeBytes(of: pid) { token.replaceSubrange(0..<4, with: $0) }
         withUnsafeBytes(of: UInt32(0x636f_636f)) { token.replaceSubrange(8..<12, with: $0) }
@@ -46,9 +59,11 @@ nonisolated struct AXWindow: @unchecked Sendable {
             withUnsafeBytes(of: elementID) { token.replaceSubrange(12..<20, with: $0) }
             guard let element = _AXUIElementCreateWithRemoteToken(token as CFData) else { continue }
             let window = AXWindow(element: element, pid: pid)
-            if window.windowID == id { return window }
+            guard let id = window.windowID, ids.contains(id), found[id] == nil, window.isWindow else { continue }
+            found[id] = window
+            if found.count == ids.count { break }
         }
-        return nil
+        return found
     }
 
     private static let searchLimit: UInt64 = 5000
@@ -66,6 +81,15 @@ nonisolated struct AXWindow: @unchecked Sendable {
     }
 
     var isFullScreen: Bool { boolValue("AXFullScreen") ?? false }
+
+    var isMinimized: Bool { boolValue(kAXMinimizedAttribute) ?? false }
+
+    /// Child elements report their window's id too.
+    private var isWindow: Bool {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &value) == .success else { return false }
+        return value as? String == kAXWindowRole
+    }
 
     func raise() {
         AXUIElementPerformAction(element, kAXRaiseAction as CFString)

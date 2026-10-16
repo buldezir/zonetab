@@ -15,6 +15,11 @@ struct SettingsView: View {
                 Toggle("Zones on ultrawide displays", isOn: $settings.zonesEnabled)
                 ZoneControls(settings: settings, preview: preview)
                     .disabled(!settings.zonesEnabled)
+                Toggle(isOn: $settings.keepTilesWhenUnplugged) {
+                    Text("Keep tiles when a display is unplugged")
+                    Text("Tiled windows are maximized on the display that's left, and go back to their zones when you plug the display in again.")
+                }
+                .disabled(!settings.zonesEnabled)
             } header: {
                 Text("Zones")
             } footer: {

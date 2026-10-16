@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let settings = Settings.shared
     private(set) lazy var inventory = WindowInventory()
     private(set) lazy var mover = WindowMover(settings: settings)
+    private(set) lazy var layoutKeeper = DisplayLayoutKeeper(inventory: inventory, settings: settings)
     private lazy var switcher = SwitcherController(inventory: inventory, settings: settings)
     private lazy var dragSnapper = DragSnapper(settings: settings, mover: mover)
     private lazy var settingsWindow = SettingsWindowController(settings: settings)
@@ -83,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startFeatures() {
         guard !featuresStarted else { return }
         featuresStarted = true
+        mover.onMove = { [weak self] in self?.layoutKeeper.recordSoon() }
         applySettings()
         dragSnapper.start()
     }
@@ -124,6 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appliedZones = zones
             mover.reset()
         }
+        layoutKeeper.setEnabled(settings.zonesEnabled && settings.keepTilesWhenUnplugged)
     }
 
     private func disableNativeSwitcher() {

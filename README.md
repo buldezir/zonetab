@@ -28,9 +28,17 @@ A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle 
 - If the cursor's display is showing a full-screen Space, it lists every app instead.
 - Apps with no windows, or only minimized windows, are not listed.
 
+**Unplugging a display** (with "Keep tiles when a display is unplugged", on by default):
+- While a zoned display is connected, ZoneTab records where each of its windows is, on every Space. The record is updated every few seconds and after each snap.
+- When you unplug the display, its tiled windows are maximized on the display they end up on. Floating windows are only moved if they no longer fit.
+- When you plug it back in, tiled windows go back to their zones, using the current zone settings, and floating windows go back to where they were. That includes windows you moved in the meantime. Windows opened while it was unplugged stay where they are.
+- Windows get their frames back, but not necessarily their Space, and the stacking order isn't restored.
+- The record is kept in `~/Library/Application Support/ZoneTab/display-layouts.json`, so it survives restarting ZoneTab. Restarting an app gives its windows new ids, so those windows aren't restored.
+
 **Settings** (menu-bar icon → Settings…):
 - turn zones on or off, and put the main zone on the left or right;
 - set the main zone's width with a slider (the zones are previewed on screen while you drag; it snaps back to 16:9 near that width, or use "Use 16:9 (4K)");
+- keep tiles when a display is unplugged;
 - turn the ⌘⇥ replacement on or off, and choose whether untiled windows are listed from every zone;
 - change the window shortcuts;
 - launch at login.
@@ -80,6 +88,11 @@ Put a scratch TextEdit window in full screen, check that ⌘⇥ lists it from bo
 scripts/e2e-fullscreen.sh
 ```
 
+Tile two TextEdit scratch windows and float a third, then act as if the display were unplugged and plugged back in. Only TextEdit's windows move:
+```bash
+scripts/e2e-layout.sh
+```
+
 Follow ZoneTab's log:
 ```bash
 log stream --predicate 'subsystem == "dev.sasha.zonetab"' --level debug
@@ -94,7 +107,7 @@ While ZoneTab runs, it turns off the system ⌘⇥ switcher, and macOS keeps tha
 
 ## Layout
 
-- `ZoneTabCore/`: pure logic, unit-tested in `ZoneTabCoreTests/`: zone geometry, which zone or display a window belongs to, the switcher list, and tile targets. Everything uses Quartz coordinates (origin at the top-left of the main display).
+- `ZoneTabCore/`: pure logic, unit-tested in `ZoneTabCoreTests/`: zone geometry, which zone or display a window belongs to, the switcher list, tile targets, and the layout kept across unplugging a display (`LayoutMemory`). Everything uses Quartz coordinates (origin at the top-left of the main display).
 - `ZoneTab/System/`: system access:
   - window list and displays (`WindowInventory`);
   - Accessibility window control (`AXWindow`);
@@ -102,7 +115,7 @@ While ZoneTab runs, it turns off the system ⌘⇥ switcher, and macOS keeps tha
   - Carbon hotkeys (`HotKeyCenter`);
   - native ⌘⇥ off/on plus the watchdog (`NativeSwitcherGuard`).
 - `ZoneTab/Switcher/`: the ⌘⇥ session and its non-activating panel.
-- `ZoneTab/Tiling/`: tiling commands and Shift-drag snapping.
+- `ZoneTab/Tiling/`: tiling commands, Shift-drag snapping, and keeping tiles across unplugging a display (`DisplayLayoutKeeper`).
 - `ZoneTab/Settings/`, `ZoneTab/App/`: preferences, the menu-bar item, app lifecycle, and debug diagnostics.
 - `ZoneTab/Resources/AppIcon.icon`: the app icon, an Icon Composer document (open it in Xcode's Icon Composer to edit). Preview it without building:
   ```bash
@@ -110,5 +123,5 @@ While ZoneTab runs, it turns off the system ⌘⇥ switcher, and macOS keeps tha
   ```
 
 **Private APIs:**
-- `CGSSetSymbolicHotKeyEnabled`, `CGSCopyManagedDisplaySpaces` and `_AXUIElementGetWindow` are declared in the bridging header.
+- `CGSSetSymbolicHotKeyEnabled`, `CGSCopyManagedDisplaySpaces`, `_AXUIElementGetWindow` and `_AXUIElementCreateWithRemoteToken` (to reach windows on other Spaces) are declared in the bridging header.
 - `_SLPSSetFrontProcessWithOptions` and `SLPSPostEventRecordTo` are looked up at runtime. If they're missing, focusing falls back to public APIs.

@@ -65,6 +65,12 @@ final class Settings: ObservableObject {
         didSet { defaults.set(includeUntiledWindows, forKey: Keys.includeUntiledWindows) }
     }
 
+    /// When a zoned display is unplugged its tiled windows are maximized, and they go back to their zones when it
+    /// returns.
+    @Published var keepTilesWhenUnplugged: Bool {
+        didSet { defaults.set(keepTilesWhenUnplugged, forKey: Keys.keepTilesWhenUnplugged) }
+    }
+
     var zoneConfig: ZoneConfig {
         ZoneConfig(side: primarySide, width: zoneWidthPercent.map { .fraction($0 / 100) } ?? .sixteenByNine)
     }
@@ -82,17 +88,19 @@ final class Settings: ObservableObject {
         static let primarySide = "primarySide"
         static let zoneWidthPercent = "zoneWidthPercent"
         static let includeUntiledWindows = "includeUntiledWindows"
+        static let keepTilesWhenUnplugged = "keepTilesWhenUnplugged"
         static let shortcuts = "shortcuts"
     }
 
     private init() {
         defaults.register(defaults: [Keys.zonesEnabled: true, Keys.replaceCommandTab: true, Keys.primarySide: ZoneSide.left.rawValue,
-                                     Keys.includeUntiledWindows: true])
+                                     Keys.includeUntiledWindows: true, Keys.keepTilesWhenUnplugged: true])
         zonesEnabled = defaults.bool(forKey: Keys.zonesEnabled)
         replaceCommandTab = defaults.bool(forKey: Keys.replaceCommandTab)
         primarySide = ZoneSide(rawValue: defaults.string(forKey: Keys.primarySide) ?? "") ?? .left
         zoneWidthPercent = defaults.object(forKey: Keys.zoneWidthPercent) as? Double
         includeUntiledWindows = defaults.bool(forKey: Keys.includeUntiledWindows)
+        keepTilesWhenUnplugged = defaults.bool(forKey: Keys.keepTilesWhenUnplugged)
         var shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, $0.defaultCombo) })
         if let data = defaults.data(forKey: Keys.shortcuts),
            let stored = try? JSONDecoder().decode([String: KeyCombo].self, from: data) {

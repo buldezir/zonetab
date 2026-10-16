@@ -9,8 +9,12 @@ import ZoneTabCore
 ///     open -g "zonetab://tile?action=left&bundle=com.apple.TextEdit"
 ///     open -g "zonetab://fullscreen?bundle=com.apple.TextEdit&on=1"   # focused window enters (on=0: leaves) full screen
 ///     open -g "zonetab://focus?wid=1234"                               # switch to a window, as the switcher does
+///     open -g "zonetab://layout?action=save|disconnect|restore&bundle=com.apple.TextEdit"
 ///
-/// Output goes to ~/Library/Application Support/ZoneTab/: diagnostics.json and {tile,fullscreen,focus}-result.json.
+/// `layout` acts on the first zoned display (or `uuid=`); `disconnect` and `restore` act as if it had been unplugged
+/// and plugged back in, moving only `bundle`'s windows if given.
+///
+/// Output goes to ~/Library/Application Support/ZoneTab/: diagnostics.json and {tile,fullscreen,focus,layout}-result.json.
 enum Diagnostics {
     static var directory: URL {
         URL.applicationSupportDirectory.appending(path: "ZoneTab", directoryHint: .isDirectory)
@@ -45,6 +49,18 @@ enum Diagnostics {
                 await write(["targetPID": "\(window.pid)", "frontmostPID": "\(frontmost ?? 0)",
                              "onScreen": "\(WindowInventory.window(id: wid)?.isOnScreen ?? false)",
                              "spaces": currentSpaces()], to: "focus-result.json")
+            }
+        case "layout":
+            guard let uuid = query["uuid"] ?? WindowInventory.displays().first(where: { ZoneLayout.isZoned($0.frame) })?.uuid else {
+                write(["error": "no zoned display"], to: "layout-result.json")
+                return
+            }
+            let pids = query["bundle"].map { bundleID in
+                Set(NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).map(\.processIdentifier))
+            }
+            Task {
+                let result = await app.layoutKeeper.debug(query["action"] ?? "save", uuid: uuid, pids: pids)
+                write(result, to: "layout-result.json")
             }
         case "tile":
             guard let command = query["action"].flatMap(TileCommand.init(rawValue:)),

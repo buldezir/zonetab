@@ -61,15 +61,20 @@ public enum ScopeResolver {
         return Scope(displayID: display.id, zone: nil, rect: display.usableFrame)
     }
 
-    /// Whether a window fills a zone, or all zones together. Apps that resize in steps (terminals) stop a little
-    /// short of a zone's edges, so this isn't an exact match.
-    public static func isTiled(_ windowBounds: CGRect, in zones: [Zone]) -> Bool {
-        guard let first = zones.first else { return false }
-        let all = zones.dropFirst().reduce(first.rect) { $0.union($1.rect) }
-        return (zones.map(\.rect) + [all]).contains { rect in
+    /// What a window fills: all zones together (`.display`), one zone, or nothing (nil, untiled). Apps that resize
+    /// in steps (terminals) stop a little short of a zone's edges, so this isn't an exact match.
+    public static func tiledPlacement(of windowBounds: CGRect, in zones: [Zone]) -> Placement? {
+        guard let first = zones.first else { return nil }
+        func fills(_ rect: CGRect) -> Bool {
             let overlap = windowBounds.intersection(rect)
             return !overlap.isNull && overlap.width >= rect.width * tiledCoverage && overlap.height >= rect.height * tiledCoverage
         }
+        if fills(zones.dropFirst().reduce(first.rect) { $0.union($1.rect) }) { return .display }
+        return zones.first { fills($0.rect) }.map { .zone($0.kind) }
+    }
+
+    public static func isTiled(_ windowBounds: CGRect, in zones: [Zone]) -> Bool {
+        tiledPlacement(of: windowBounds, in: zones) != nil
     }
 
     /// - Parameter untiledInEveryZone: windows that don't fill a zone (settings windows, dialogs, anything sized

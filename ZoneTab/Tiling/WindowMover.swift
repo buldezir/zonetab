@@ -14,6 +14,8 @@ struct TileOutcome: Codable {
 final class WindowMover {
     private let settings: Settings
     private var memory: [CGWindowID: TileMemory] = [:]
+    /// Called after a window was tiled.
+    var onMove: (() -> Void)?
 
     init(settings: Settings) {
         self.settings = settings
@@ -73,5 +75,6 @@ final class WindowMover {
         guard let outcome, let windowID = outcome.windowID else { return }
         memory[windowID] = TileMemory(placement: outcome.plan.placement, frame: outcome.actual ?? outcome.plan.frame,
                                       zoneBeforeDisplay: outcome.plan.zoneBeforeDisplay)
+        onMove?()
     }
 }
