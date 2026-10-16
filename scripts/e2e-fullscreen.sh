@@ -1,7 +1,7 @@
 #!/bin/bash
-# End-to-end full-screen check against a running Debug ZoneTab: puts a TextEdit scratch window in full screen,
-# checks that ⌘⇥ lists it from both zones ("Always include untiled windows"), then switches to it and back
-# through zonetab://focus. Your display switches Spaces a few times while it runs.
+# End-to-end full-screen check against a running Debug ZoneTab: puts a TextEdit scratch window in full screen (by
+# pressing ⌃⌘F in TextEdit), checks that ⌘⇥ lists it from both zones ("Always include untiled windows"), then
+# switches to it and back through zonetab://focus. Your display switches Spaces a few times while it runs.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -51,9 +51,22 @@ TEXTEDIT_WAS_RUNNING=false
 pgrep -x TextEdit >/dev/null && TEXTEDIT_WAS_RUNNING=true
 open -a TextEdit "$SCRATCH"
 sleep 2
-before=$(stat -f %m "$DIR/fullscreen-result.json" 2>/dev/null || echo 0)
-open -g "zonetab://fullscreen?bundle=com.apple.TextEdit&on=1"
-wait_for "$DIR/fullscreen-result.json" "$before"
+# Into full screen with TextEdit's own shortcut, not through Accessibility: a window that no Accessibility client has
+# asked about yet is the hard one to switch to.
+swift - <<'EOF'
+import AppKit
+guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.TextEdit" else {
+    print("TextEdit isn't in front")
+    exit(1)
+}
+let source = CGEventSource(stateID: .hidSystemState)
+for down in [true, false] {
+    let event = CGEvent(keyboardEventSource: source, virtualKey: 3, keyDown: down) // ⌃⌘F
+    event?.flags = [.maskControl, .maskCommand]
+    event?.post(tap: .cghidEventTap)
+}
+EOF
+sleep 2
 FULL_SCREEN=$(window_id TextEdit "$NAME")
 
 failures=0

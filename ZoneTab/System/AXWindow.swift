@@ -41,11 +41,20 @@ nonisolated struct AXWindow: @unchecked Sendable {
     }
 
     /// The app's windows with these ids, on any Space. Element ids are small and handed out in order, so windows
-    /// are among the first few thousand.
+    /// are among the first few thousand. But an element only gets an id once some Accessibility client has asked
+    /// for it: a window that went to another Space (full screen, say) before anyone did has none. The app's
+    /// focused and main windows are given out from any Space, so they're asked for first.
     static func windowsOnAnySpace(pid: pid_t, ids: Set<CGWindowID>) -> [CGWindowID: AXWindow] {
         var found: [CGWindowID: AXWindow] = [:]
-        for window in windows(pid: pid) {
-            if let id = window.windowID, ids.contains(id) { found[id] = window }
+        func take(_ window: AXWindow) {
+            if let id = window.windowID, ids.contains(id), found[id] == nil { found[id] = window }
+        }
+        windows(pid: pid).forEach(take)
+        if found.count < ids.count {
+            let app = application(pid)
+            for attribute in [kAXFocusedWindowAttribute, kAXMainWindowAttribute] {
+                if let element = element(app, attribute) { take(AXWindow(element: element, pid: pid)) }
+            }
         }
         guard found.count < ids.count else { return found }
         let start = ContinuousClock.now
