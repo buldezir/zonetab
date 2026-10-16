@@ -10,8 +10,8 @@ A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle 
 | | |
 |---|---|
 | ⌘⇥ / ⌘⇧⇥ | Switch apps within the zone or display under the mouse |
-| hold ⌘: ⇥ ⇧⇥ ← → | Move the selection |
-| hold ⌘: ↩ / release ⌘ | Switch to the selected app |
+| hold ⌘: ⇥ ⇧⇥ ← →, or point at an app | Move the selection |
+| hold ⌘: ↩ / click an app / release ⌘ | Switch to the selected app |
 | hold ⌘: ⎋ | Cancel |
 | hold ⌘: Q / H | Quit / hide the selected app |
 | ⌃⌥⌘↩ | Fill the window's zone; press again for the whole display; again to go back to the zone |
@@ -39,10 +39,17 @@ A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle 
 - Windows get their frames back, but not necessarily their Space, and the stacking order isn't restored.
 - The record is kept in `~/Library/Application Support/ZoneTab/display-layouts.json`, so it survives restarting ZoneTab. Restarting an app gives its windows new ids, so those windows aren't restored.
 
+**Focus follows the mouse between zones** (off by default):
+- When the mouse moves into another zone, or onto another display, the window under it comes to the front and gets focus, as if you had clicked it. Moving around inside a zone changes nothing.
+- The mouse has to stay in the zone for a moment (0.1 s), so passing through one on the way somewhere else doesn't focus it.
+- If the mouse enters the zone over the menu bar, a menu, the Dock or the desktop, the window is focused once the mouse reaches it.
+- Nothing happens while the ⌘⇥ switcher is open, or after you click.
+
 **Settings** (menu-bar icon → Settings…):
 - turn zones on or off, and put the main zone on the left or right;
 - set the main zone's width with a slider (the zones are previewed on screen while you drag; it snaps back to 16:9 near that width, or use "Use 16:9 (4K)");
 - keep tiles when a display is unplugged;
+- focus follows the mouse between zones;
 - turn the ⌘⇥ replacement on or off, and choose whether untiled windows are listed from every zone;
 - change the window shortcuts;
 - launch at login.
@@ -97,6 +104,11 @@ Tile two TextEdit scratch windows and float a third, then act as if the display 
 scripts/e2e-layout.sh
 ```
 
+Point at and click an app in the ⌘⇥ switcher, then move between the zones with "Focus follows the mouse" on, using two TextEdit scratch windows. It moves the mouse and holds ⌘ for a few seconds, so leave the keyboard and mouse alone while it runs:
+```bash
+scripts/e2e-mouse.sh
+```
+
 Follow ZoneTab's log:
 ```bash
 log stream --predicate 'subsystem == "dev.sasha.zonetab"' --level debug
@@ -111,7 +123,7 @@ While ZoneTab runs, it turns off the system ⌘⇥ switcher, and macOS keeps tha
 
 ## Layout
 
-- `ZoneTabCore/`: pure logic, unit-tested in `ZoneTabCoreTests/`: zone geometry, which zone or display a window belongs to, the switcher list, tile targets, and the layout kept across unplugging a display (`LayoutMemory`). Everything uses Quartz coordinates (origin at the top-left of the main display).
+- `ZoneTabCore/`: pure logic, unit-tested in `ZoneTabCoreTests/`: zone geometry, which zone or display a window belongs to, the switcher list, tile targets, the layout kept across unplugging a display (`LayoutMemory`), and the window to focus under the mouse (`MouseFocus`). Everything uses Quartz coordinates (origin at the top-left of the main display).
 - `ZoneTab/System/`: system access:
   - window list and displays (`WindowInventory`);
   - Accessibility window control (`AXWindow`);
@@ -119,7 +131,7 @@ While ZoneTab runs, it turns off the system ⌘⇥ switcher, and macOS keeps tha
   - Carbon hotkeys (`HotKeyCenter`);
   - native ⌘⇥ off/on plus the watchdog (`NativeSwitcherGuard`).
 - `ZoneTab/Switcher/`: the ⌘⇥ session and its non-activating panel.
-- `ZoneTab/Tiling/`: tiling commands, Shift-drag snapping, and keeping tiles across unplugging a display (`DisplayLayoutKeeper`).
+- `ZoneTab/Tiling/`: tiling commands, Shift-drag snapping, keeping tiles across unplugging a display (`DisplayLayoutKeeper`), and focus following the mouse (`FocusFollower`).
 - `ZoneTab/Settings/`, `ZoneTab/App/`: preferences, the menu-bar item, app lifecycle, and debug diagnostics.
 - `ZoneTab/Resources/AppIcon.icon`: the app icon, an Icon Composer document (open it in Xcode's Icon Composer to edit). Preview it without building:
   ```bash

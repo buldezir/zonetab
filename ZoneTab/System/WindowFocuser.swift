@@ -34,9 +34,10 @@ nonisolated enum WindowFocuser {
         let axWindow = AXWindow.windowOnAnySpace(pid: pid, id: windowID)
         bringForward(pid: pid, windowID: windowID, axWindow: axWindow, app: app)
 
-        // Some apps re-order their windows right after activation; check once and repeat if we lost.
+        // Some apps re-order their windows right after activation; check once and repeat if we lost. Cancelled
+        // when something else has been focused since.
         try? await Task.sleep(for: .milliseconds(150))
-        if NSWorkspace.shared.frontmostApplication?.processIdentifier != pid {
+        if !Task.isCancelled, NSWorkspace.shared.frontmostApplication?.processIdentifier != pid {
             Log.switcher.debug("Focus retry for pid \(pid) window \(windowID)")
             bringForward(pid: pid, windowID: windowID, axWindow: axWindow, app: app)
         }

@@ -7,8 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var inventory = WindowInventory()
     private(set) lazy var mover = WindowMover(settings: settings)
     private(set) lazy var layoutKeeper = DisplayLayoutKeeper(inventory: inventory, settings: settings)
-    private lazy var switcher = SwitcherController(inventory: inventory, settings: settings)
+    private(set) lazy var switcher = SwitcherController(inventory: inventory, settings: settings)
     private lazy var dragSnapper = DragSnapper(settings: settings, mover: mover)
+    private lazy var focusFollower = FocusFollower(inventory: inventory, settings: settings)
     private lazy var settingsWindow = SettingsWindowController(settings: settings)
     private var statusMenu: StatusMenuController?
 
@@ -85,6 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !featuresStarted else { return }
         featuresStarted = true
         mover.onMove = { [weak self] in self?.layoutKeeper.recordSoon() }
+        focusFollower.isSuspended = { [weak self] in self?.switcher.isActive ?? false }
+        switcher.onBegin = { [weak self] in self?.focusFollower.cancel() }
         applySettings()
         dragSnapper.start()
     }
@@ -127,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             mover.reset()
         }
         layoutKeeper.setEnabled(settings.zonesEnabled && settings.keepTilesWhenUnplugged)
+        focusFollower.setEnabled(settings.focusFollowsMouse)
     }
 
     private func disableNativeSwitcher() {

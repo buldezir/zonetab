@@ -31,12 +31,16 @@ final class SwitcherController {
     private var items: [SwitcherItem] = []
     private var selection = 0
     private var scopeRect: CGRect = .zero
-    private var isActive = false
+    private(set) var isActive = false
     private var showTask: Task<Void, Never>?
+    /// A session is starting.
+    var onBegin: () -> Void = {}
 
     init(inventory: WindowInventory, settings: Settings) {
         self.inventory = inventory
         self.settings = settings
+        panel.onPoint = { [weak self] in self?.point(at: $0) }
+        panel.onClick = { [weak self] in self?.click($0) }
         terminationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
         ) { [weak self] note in
@@ -149,6 +153,7 @@ final class SwitcherController {
             return
         }
 
+        onBegin()
         items = entries
         selection = forward ? initial : entries.count - 1
         scopeRect = scope.rect
@@ -160,6 +165,19 @@ final class SwitcherController {
             guard let self, self.isActive, !Task.isCancelled else { return }
             self.panel.show(items: self.items, selection: self.selection, in: self.scopeRect)
         }
+    }
+
+    /// The mouse moved onto an app in the panel.
+    private func point(at index: Int) {
+        guard isActive, items.indices.contains(index), index != selection else { return }
+        selection = index
+        panel.update(selection: selection)
+    }
+
+    private func click(_ index: Int) {
+        guard isActive, items.indices.contains(index) else { return }
+        selection = index
+        commit()
     }
 
     private func commit() {
@@ -208,3 +226,26 @@ final class SwitcherController {
         panel.update(items: items, selection: selection, in: scopeRect)
     }
 }
+
+#if DEBUG
+extension SwitcherController {
+    struct DebugState: Encodable {
+        struct Item: Encodable {
+            var name: String
+            var pid: pid_t
+            /// On screen, in Quartz coordinates.
+            var frame: CGRect
+        }
+
+        var active: Bool
+        var panelVisible: Bool
+        var selection: Int
+        var items: [Item]
+    }
+
+    var debugState: DebugState {
+        DebugState(active: isActive, panelVisible: panel.isVisible, selection: selection,
+                   items: zip(items, panel.itemFramesOnScreen).map { DebugState.Item(name: $0.name, pid: $0.pid, frame: $1) })
+    }
+}
+#endif

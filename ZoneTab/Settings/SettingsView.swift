@@ -20,6 +20,10 @@ struct SettingsView: View {
                     Text("Tiled windows are maximized on the display that's left, and go back to their zones when you plug the display in again.")
                 }
                 .disabled(!settings.zonesEnabled)
+                Toggle(isOn: $settings.focusFollowsMouse) {
+                    Text("Focus follows the mouse between zones")
+                    Text("Moving the mouse into another zone, or another display, brings the window under it to the front, as if you had clicked it.")
+                }
             } header: {
                 Text("Zones")
             } footer: {
@@ -36,7 +40,7 @@ struct SettingsView: View {
             } header: {
                 Text("App switcher")
             } footer: {
-                Text("Lists only apps with a window in the zone (or display) under the mouse. Hold ⌘ and use ⇥, ⇧⇥ or arrows; ⌘Q quits and ⌘H hides the selected app; ⌘⎋ cancels.")
+                Text("Lists only apps with a window in the zone (or display) under the mouse. Hold ⌘ and use ⇥, ⇧⇥ or arrows, or point at an app and click it; ⌘Q quits and ⌘H hides the selected app; ⌘⎋ cancels.")
             }
 
             Section("Window shortcuts") {

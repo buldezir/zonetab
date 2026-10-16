@@ -4,9 +4,19 @@ final class SwitcherViewModel: ObservableObject {
     @Published var items: [SwitcherItem] = []
     @Published var selection = 0
     @Published var iconSize: CGFloat = 80
+    /// Each item's tile, in `SwitcherView.coordinateSpace` (the view's own top-left-origin coordinates), for
+    /// finding the app under the mouse. Not published: nothing in the view depends on it.
+    var itemFrames: [pid_t: CGRect] = [:]
+
+    /// The index of the item at `point`, in `SwitcherView.coordinateSpace`.
+    func item(at point: CGPoint) -> Int? {
+        items.firstIndex { itemFrames[$0.pid]?.contains(point) ?? false }
+    }
 }
 
 struct SwitcherView: View {
+    nonisolated static let coordinateSpace = "switcher"
+
     @ObservedObject var model: SwitcherViewModel
 
     private var selectedName: String {
@@ -27,6 +37,9 @@ struct SwitcherView: View {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(index == model.selection ? Color.primary.opacity(0.16) : .clear)
                         }
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.coordinateSpace)) } action: { frame in
+                            model.itemFrames[item.pid] = frame
+                        }
                 }
             }
             Text(selectedName)
@@ -38,5 +51,6 @@ struct SwitcherView: View {
         .padding(.vertical, 14)
         .glassEffect(.regular, in: .rect(cornerRadius: 28))
         .fixedSize()
+        .coordinateSpace(.named(Self.coordinateSpace))
     }
 }

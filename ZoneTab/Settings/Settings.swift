@@ -71,6 +71,11 @@ final class Settings: ObservableObject {
         didSet { defaults.set(keepTilesWhenUnplugged, forKey: Keys.keepTilesWhenUnplugged) }
     }
 
+    /// Moving the mouse into another zone (or display) focuses the window under it.
+    @Published var focusFollowsMouse: Bool {
+        didSet { defaults.set(focusFollowsMouse, forKey: Keys.focusFollowsMouse) }
+    }
+
     var zoneConfig: ZoneConfig {
         ZoneConfig(side: primarySide, width: zoneWidthPercent.map { .fraction($0 / 100) } ?? .sixteenByNine)
     }
@@ -89,6 +94,7 @@ final class Settings: ObservableObject {
         static let zoneWidthPercent = "zoneWidthPercent"
         static let includeUntiledWindows = "includeUntiledWindows"
         static let keepTilesWhenUnplugged = "keepTilesWhenUnplugged"
+        static let focusFollowsMouse = "focusFollowsMouse"
         static let shortcuts = "shortcuts"
     }
 
@@ -101,6 +107,7 @@ final class Settings: ObservableObject {
         zoneWidthPercent = defaults.object(forKey: Keys.zoneWidthPercent) as? Double
         includeUntiledWindows = defaults.bool(forKey: Keys.includeUntiledWindows)
         keepTilesWhenUnplugged = defaults.bool(forKey: Keys.keepTilesWhenUnplugged)
+        focusFollowsMouse = defaults.bool(forKey: Keys.focusFollowsMouse)
         var shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, $0.defaultCombo) })
         if let data = defaults.data(forKey: Keys.shortcuts),
            let stored = try? JSONDecoder().decode([String: KeyCombo].self, from: data) {

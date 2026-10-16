@@ -10,11 +10,14 @@ import ZoneTabCore
 ///     open -g "zonetab://fullscreen?bundle=com.apple.TextEdit&on=1"   # focused window enters (on=0: leaves) full screen
 ///     open -g "zonetab://focus?wid=1234"                               # switch to a window, as the switcher does
 ///     open -g "zonetab://layout?action=save|disconnect|restore&bundle=com.apple.TextEdit"
+///     open -g "zonetab://switcher"                                     # the ⌘⇥ session: selection, items on screen
+///     open -g "zonetab://focusfollows?on=1"                            # turn "Focus follows the mouse" on (on=0: off)
 ///
 /// `layout` acts on the first zoned display (or `uuid=`); `disconnect` and `restore` act as if it had been unplugged
 /// and plugged back in, moving only `bundle`'s windows if given.
 ///
-/// Output goes to ~/Library/Application Support/ZoneTab/: diagnostics.json and {tile,fullscreen,focus,layout}-result.json.
+/// Output goes to ~/Library/Application Support/ZoneTab/: diagnostics.json and
+/// {tile,fullscreen,focus,layout,switcher,focusfollows}-result.json.
 enum Diagnostics {
     static var directory: URL {
         URL.applicationSupportDirectory.appending(path: "ZoneTab", directoryHint: .isDirectory)
@@ -62,6 +65,12 @@ enum Diagnostics {
                 let result = await app.layoutKeeper.debug(query["action"] ?? "save", uuid: uuid, pids: pids)
                 write(result, to: "layout-result.json")
             }
+        case "switcher":
+            write(app.switcher.debugState, to: "switcher-result.json")
+        case "focusfollows":
+            let previous = app.settings.focusFollowsMouse
+            app.settings.focusFollowsMouse = query["on"] != "0"
+            write(["previous": previous], to: "focusfollows-result.json")
         case "tile":
             guard let command = query["action"].flatMap(TileCommand.init(rawValue:)),
                   let bundleID = query["bundle"],
