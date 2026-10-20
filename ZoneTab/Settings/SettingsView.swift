@@ -22,7 +22,7 @@ struct SettingsView: View {
                 .disabled(!settings.zonesEnabled)
                 Toggle(isOn: $settings.focusFollowsMouse) {
                     Text("Focus follows the mouse between zones")
-                    Text("Moving the mouse into another zone, or another display, brings the window under it to the front, as if you had clicked it.")
+                    Text("Moving the mouse into another zone, or another display, brings the window under it to the front, as if you had clicked it. Not while you're typing or holding a key.")
                 }
             } header: {
                 Text("Zones")

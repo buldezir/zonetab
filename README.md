@@ -83,7 +83,8 @@ This is off by default.
 - When the mouse moves into another zone, or onto another display, the window under it comes to the front and gets focus, as if you had clicked it. Moving around inside a zone changes nothing.
 - The mouse has to stay in the zone for a moment (0.1 s), so passing through one on the way somewhere else doesn't focus it.
 - If the mouse enters the zone over the menu bar, a menu, the Dock or the desktop, the window is focused once the mouse reaches it.
-- Nothing happens while the ⌘⇥ switcher is open, or after you click.
+- Nothing happens while the ⌘⇥ switcher is open.
+- Clicking, holding a key, or pressing one before the window comes forward keeps the focus where it is until the mouse moves into another zone. Keystrokes keep going to the window you're typing in.
 
 ## Settings
 
@@ -96,7 +97,7 @@ Open them from the menu-bar icon → Settings…:
 - change the window shortcuts;
 - launch at login.
 
-The menu-bar menu also has quick toggles for zones, the main zone's side and the ⌘⇥ replacement.
+The menu-bar menu also has quick toggles for zones, the main zone's side, focus following the mouse and the ⌘⇥ replacement.
 
 Building and development notes are in [AGENTS.md](AGENTS.md).
 

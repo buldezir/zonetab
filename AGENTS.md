@@ -58,7 +58,7 @@ Tile two TextEdit scratch windows and float a third, then act as if the display 
 scripts/e2e-layout.sh
 ```
 
-Point at and click an app in the ⌘⇥ switcher, then move between the zones with "Focus follows the mouse" on, using two TextEdit scratch windows. It posts real mouse and keyboard events and holds ⌘ for a few seconds. Run it only when nobody is using the Mac: keys typed meanwhile reach the frontmost app as ⌘ shortcuts.
+Point at and click an app in the ⌘⇥ switcher, then move between the zones with "Focus follows the mouse" on, with and without a key held, using two TextEdit scratch windows. It posts real mouse and keyboard events and holds ⌘ for a few seconds. Run it only when nobody is using the Mac: keys typed meanwhile reach the frontmost app as ⌘ shortcuts.
 ```bash
 scripts/e2e-mouse.sh
 ```

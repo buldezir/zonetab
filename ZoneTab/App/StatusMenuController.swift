@@ -39,6 +39,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             sideItem.isEnabled = settings.zonesEnabled
             menu.addItem(sideItem)
         }
+        menu.addItem(item("Focus Follows the Mouse", #selector(toggleFocusFollows), state: settings.focusFollowsMouse))
         menu.addItem(item("Replace ⌘⇥ App Switcher", #selector(toggleSwitcher), state: settings.replaceCommandTab))
         menu.addItem(.separator())
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
@@ -53,6 +54,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleZones() { app?.settings.zonesEnabled.toggle() }
+    @objc private func toggleFocusFollows() { app?.settings.focusFollowsMouse.toggle() }
     @objc private func toggleSwitcher() { app?.settings.replaceCommandTab.toggle() }
     @objc private func openAccessibility() { Permissions.openAccessibilitySettings() }
     @objc private func openSettings() { app?.showSettings() }

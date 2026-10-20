@@ -2,7 +2,8 @@ import AppKit
 import ZoneTabCore
 
 /// "Focus follows the mouse between zones": when the mouse moves into another zone (or display), the window under
-/// it comes to the front and gets focus, as if it had been clicked. Moving around inside a zone changes nothing.
+/// it comes to the front and gets focus, as if it had been clicked. Moving around inside a zone changes nothing, and
+/// neither does coming into a zone while using the keyboard.
 final class FocusFollower {
     /// How long the mouse has to stay in a zone before its window is focused, so passing through one doesn't.
     private static let dwell: TimeInterval = 0.1
@@ -26,6 +27,8 @@ final class FocusFollower {
     private var region: Region?
     /// The mouse entered `region` and its window hasn't been focused yet.
     private var pending = false
+    /// When the mouse entered `region`, in system uptime like the event source's clock.
+    private var enteredAt: TimeInterval = 0
     private var dwellTimer: Timer?
     private var lastAttempt = ContinuousClock.now
     private var focusTask: Task<Void, Never>?
@@ -88,6 +91,7 @@ final class FocusFollower {
             cancel()
             guard entered else { return }
             pending = true
+            enteredAt = ProcessInfo.processInfo.systemUptime
             dwellTimer = Timer.scheduledTimer(withTimeInterval: Self.dwell, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.dwellTimer = nil
@@ -99,6 +103,18 @@ final class FocusFollower {
         }
     }
 
+    /// A key is held, or one was pressed or released since the mouse entered the zone: the keystrokes are meant for
+    /// the focused window, so the focus stays there. Caps Lock stays down while it's on, so it doesn't count as held.
+    private var isKeyboardInUse: Bool {
+        let state = CGEventSourceStateID.combinedSessionState
+        let sinceEntered = ProcessInfo.processInfo.systemUptime - enteredAt
+        let types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged]
+        if types.contains(where: { CGEventSource.secondsSinceLastEventType(state, eventType: $0) < sinceEntered }) { return true }
+        return (0..<128).contains { $0 != Self.capsLock && CGEventSource.keyState(state, key: $0) }
+    }
+
+    private static let capsLock: CGKeyCode = 57
+
     private func region(at point: CGPoint) -> Region? {
         ScopeResolver.scope(at: point, displays: displays, zonesEnabled: settings.zonesEnabled, config: settings.zoneConfig)
             .map { Region(displayID: $0.displayID, zone: $0.zone) }
@@ -108,7 +124,7 @@ final class FocusFollower {
         lastAttempt = .now
         let point = WindowInventory.mouseLocation
         guard pending else { return }
-        guard !isSuspended() else { return cancel() }
+        guard !isSuspended(), !isKeyboardInUse else { return cancel() }
         guard NSEvent.pressedMouseButtons == 0, region(at: point) == region else { return }
         let snapshot = inventory.snapshot()
         switch MouseFocus.target(at: point, windows: snapshot.windows, apps: snapshot.apps, frontmostPID: snapshot.frontmostPID,

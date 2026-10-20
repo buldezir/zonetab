@@ -33,6 +33,7 @@ EOF
 }
 
 # Posts mouse and keyboard events, in Quartz coordinates. A trailing "cmd" marks mouse events as made with ⌘ held.
+# "key down|up|tap CODE" presses a key without modifiers.
 cat > "$SCRATCH/input.swift" <<'EOF'
 import CoreGraphics
 import Foundation
@@ -76,6 +77,10 @@ case "click":
     mouse(.leftMouseUp, point(1))
 case "cmd":
     key(55, down: args[1] == "down", flags: args[1] == "down" ? .maskCommand : [])
+case "key":
+    let code = CGKeyCode(args[2])!
+    if args[1] != "up" { key(code, down: true, flags: []) }
+    if args[1] != "down" { key(code, down: false, flags: []) }
 case "cmdtab":
     key(48, down: true, flags: .maskCommand)
     key(48, down: false, flags: .maskCommand)
@@ -96,9 +101,11 @@ if pgrep -x TextEdit >/dev/null; then
   fi
 fi
 START=$(input where)
+ARROW=124 # →: the key held and pressed below, in the frontmost TextEdit window
 FOLLOWS_WAS=$(defaults read dev.sasha.zonetab focusFollowsMouse 2>/dev/null || echo 0)
 cleanup() {
   input cmd up
+  input key up "$ARROW"
   open -g "zonetab://focusfollows?on=$FOLLOWS_WAS"
   # shellcheck disable=SC2086
   input warp $START
@@ -173,11 +180,28 @@ run "zonetab://focus?wid=$ID1" focus-result.json focus-2.json
   FRONT_OVER_MENU_BAR=$(front_window)
   input glide $B_TOP $B; sleep 0.6
   FRONT_DOWN_IN_B=$(front_window)
+  # Holding a key, or pressing one on the way, keeps the focus where it is until the mouse moves to another zone.
+  input key down "$ARROW"
+  input glide $B $A; sleep 0.6
+  FRONT_KEY_HELD=$(front_window)
+  input key up "$ARROW"
+  input glide $A $A_TOP; sleep 0.6
+  FRONT_KEY_RELEASED=$(front_window)
+  input glide $A_TOP $B_TOP; sleep 0.3
+  input glide $B_TOP $A_TOP; sleep 0.3
+  input key tap "$ARROW"
+  input glide $A_TOP $A; sleep 0.6
+  FRONT_KEY_PRESSED=$(front_window)
+  input glide $A $B; sleep 0.6
+  input glide $B $A; sleep 0.6
+  FRONT_AFTER_KEYS=$(front_window)
 }
 
-python3 -I - "$OUT" "$SWITCHED_TO" "${NAMES[@]}" "$FRONT_IN_B" "$FRONT_IN_A" "$FRONT_OVER_MENU_BAR" "$FRONT_DOWN_IN_B" <<'EOF'
+python3 -I - "$OUT" "$SWITCHED_TO" "${NAMES[@]}" "$FRONT_IN_B" "$FRONT_IN_A" "$FRONT_OVER_MENU_BAR" "$FRONT_DOWN_IN_B" \
+  "$FRONT_KEY_HELD" "$FRONT_KEY_RELEASED" "$FRONT_KEY_PRESSED" "$FRONT_AFTER_KEYS" <<'EOF'
 import json, os, sys
 out, switched_to, name1, name2, in_b, in_a, over_menu_bar, down_in_b = sys.argv[1:9]
+key_held, key_released, key_pressed, after_keys = sys.argv[9:13]
 load = lambda name: json.load(open(os.path.join(out, name))) if os.path.exists(os.path.join(out, name)) else {}
 opened, pointed, clicked = load("opened.json"), load("pointed.json"), load("clicked.json")
 names = [item["name"] for item in opened.get("items", [])]
@@ -197,6 +221,10 @@ check("moving into the right zone focuses its window", in_b == name2, in_b)
 check("moving back focuses the left zone's window", in_a == name1, in_a)
 check("over the menu bar, nothing changes yet", over_menu_bar == name1, over_menu_bar)
 check("reaching the window focuses it", down_in_b == name2, down_in_b)
+check("holding a key keeps the focus", key_held == name2, key_held)
+check("releasing it changes nothing until the next zone", key_released == name2, key_released)
+check("a key pressed on the way keeps the focus", key_pressed == name2, key_pressed)
+check("without keys, the focus follows again", after_keys == name1, after_keys)
 
 print("All mouse checks passed." if failures == 0 else f"{failures} check(s) failed.")
 sys.exit(1 if failures else 0)
