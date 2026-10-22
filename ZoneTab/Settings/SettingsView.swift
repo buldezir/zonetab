@@ -64,6 +64,8 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            UpdatesSection()
         }
         .formStyle(.grouped)
         .frame(width: 480)
@@ -80,6 +82,27 @@ struct SettingsView: View {
         } catch {
             launchAtLoginError = error.localizedDescription
             launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+}
+
+/// Whether the app looks for updates, and installs them by itself.
+private struct UpdatesSection: View {
+    @Bindable private var updater = AppUpdater.shared
+
+    var body: some View {
+        if updater.isRelease {
+            Section {
+                Toggle("Check for updates automatically", isOn: $updater.checksAutomatically)
+                Toggle("Download and install automatically", isOn: $updater.downloadsAutomatically)
+                    .disabled(!updater.checksAutomatically)
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text(updater.downloadsAutomatically && updater.checksAutomatically
+                     ? "Once a day. A new version installs when you quit ZoneTab."
+                     : "Once a day. ZoneTab asks before installing a new version.")
+            }
         }
     }
 }

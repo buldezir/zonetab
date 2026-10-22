@@ -42,6 +42,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(item("Focus Follows the Mouse", #selector(toggleFocusFollows), state: settings.focusFollowsMouse))
         menu.addItem(item("Replace ⌘⇥ App Switcher", #selector(toggleSwitcher), state: settings.replaceCommandTab))
         menu.addItem(.separator())
+        let updater = AppUpdater.shared
+        if updater.isRelease {
+            let update = item(updater.menuTitle, #selector(checkForUpdates))
+            update.isEnabled = updater.canCheck || updater.available != nil
+            menu.addItem(update)
+        }
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
         menu.addItem(item("Quit ZoneTab", #selector(quit), key: "q"))
     }
@@ -58,6 +64,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func toggleSwitcher() { app?.settings.replaceCommandTab.toggle() }
     @objc private func openAccessibility() { Permissions.openAccessibilitySettings() }
     @objc private func openSettings() { app?.showSettings() }
+    @objc private func checkForUpdates() { AppUpdater.shared.checkForUpdates() }
     @objc private func quit() { NSApp.terminate(nil) }
 
     @objc private func chooseSide(_ sender: NSMenuItem) {

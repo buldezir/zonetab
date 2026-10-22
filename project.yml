@@ -7,6 +7,11 @@ options:
   createIntermediateGroups: true
   generateEmptyDirectories: true
 
+packages:
+  Sparkle:  # the app's updater; scripts/appcast.sh writes its feed
+    url: https://github.com/sparkle-project/Sparkle
+    minorVersion: 2.10.0
+
 settings:
   base:
     MACOSX_DEPLOYMENT_TARGET: "26.0"
@@ -17,9 +22,20 @@ settings:
     DEVELOPMENT_TEAM: LY2W69ED92
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "Developer ID Application"
-    ENABLE_HARDENED_RUNTIME: YES
-    MARKETING_VERSION: "0.1.0"
+    # The hardened runtime, which notarization needs, is on when the app is
+    # signed with a team. Signed ad hoc, without one, it would stop the app
+    # from loading Sparkle.framework: library validation wants the app and the
+    # framework to share a Team ID, and ad hoc code has none.
+    ENABLE_HARDENED_RUNTIME: "$(HARDENED_RUNTIME_$(DEVELOPMENT_TEAM:default=WITHOUT_TEAM):default=YES)"
+    HARDENED_RUNTIME_WITHOUT_TEAM: NO
+    # Release tags set both: the version, and a build number that only grows
+    # (0.3.0-beta.2 → 30002, 0.3.0 → 30099), which Sparkle compares. A local
+    # build is 0.1, which doesn't update.
+    MARKETING_VERSION: "0.1"
     CURRENT_PROJECT_VERSION: "1"
+    # Sparkle installs only updates signed with the private half, which is
+    # the SPARKLE_PRIVATE_KEY secret (AGENTS.md › Releases).
+    SPARKLE_PUBLIC_KEY: Nhy+yKDTjorAxO/o5Sq2NBWkRCcVKRU2cKEVQJk8ES0=
 
 targets:
   ZoneTabCore:
@@ -38,12 +54,17 @@ targets:
     sources: [ZoneTab]
     dependencies:
       - target: ZoneTabCore
+      - package: Sparkle
     info:
       path: ZoneTab/Support/Info.plist
       properties:
         CFBundleDisplayName: ZoneTab
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Sparkle: the feed is the latest release's (scripts/appcast.sh).
+        SUFeedURL: https://github.com/buldezir/zonetab/releases/latest/download/ZoneTab-macOS-appcast.xml
+        SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
+        SUEnableAutomaticChecks: true
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         LSApplicationCategoryType: public.app-category.utilities
         LSUIElement: true
@@ -60,6 +81,10 @@ targets:
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_OBJC_BRIDGING_HEADER: ZoneTab/Support/ZoneTab-Bridging-Header.h
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    postBuildScripts:
+      - name: Sign Sparkle
+        script: exec "$SRCROOT/scripts/sign-sparkle.sh"
+        basedOnDependencyAnalysis: false
 
   ZoneTabCoreTests:
     type: bundle.unit-test

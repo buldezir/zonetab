@@ -35,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1.0)
         statusMenu = StatusMenuController(app: self)
+        AppUpdater.shared.start()
         NativeSwitcherGuard.spawnWatchdog()
         observeSystem()
 

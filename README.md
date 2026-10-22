@@ -7,6 +7,12 @@ A menu-bar app for macOS 26+ (Apple Silicon) that replaces AltTab and Rectangle 
 
 ZoneTab needs **Accessibility** access to move and focus windows. It doesn't need Screen Recording: it shows app icons, not window thumbnails.
 
+## Install
+
+Download `ZoneTab-macOS-arm64.zip` from [Releases](https://github.com/buldezir/zonetab/releases), unzip it and drag `ZoneTab.app` into Applications before you open it, then allow it under System Settings › Privacy & Security › Accessibility. To build it yourself, see [AGENTS.md](AGENTS.md).
+
+ZoneTab is signed with Developer ID and notarized by Apple, and updates itself: **Check for Updates…** is in its menu bar menu, and Settings › Updates turns the daily checks and automatic installs on and off. If it says it can't be updated, it is running from the temporary copy macOS makes of an app opened where it was downloaded: quit it and run `xattr -dr com.apple.quarantine /Applications/ZoneTab.app`.
+
 ## Using it
 
 | | |
